@@ -1,22 +1,29 @@
 import React from 'react';
 import { GameState } from '../types/footballLife';
 import { COUNTRIES } from '../data/worldData';
-import { Shield, Heart, Activity, Users, MessageSquare, AlertTriangle, ArrowRight, Smartphone, Settings } from 'lucide-react';
+import { Shield, Heart, Activity, Users, MessageSquare, AlertTriangle, ArrowRight, Smartphone, Settings, FastForward, Calendar } from 'lucide-react';
+import { formatDateJapanese } from '../services/gameEngine';
 
 interface HeaderProps {
   gameState: GameState;
   onNextDay: () => void;
+  onAutoAdvance: () => void;
+  daysUntilMatch?: number;
   onOpenSmartphone: () => void;
   onOpenSettings: () => void;
   isProcessingNextDay: boolean;
+  isAutoAdvancing: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   gameState,
   onNextDay,
+  onAutoAdvance,
+  daysUntilMatch,
   onOpenSmartphone,
   onOpenSettings,
-  isProcessingNextDay
+  isProcessingNextDay,
+  isAutoAdvancing
 }) => {
   const { player, currentDate } = gameState;
   const country = COUNTRIES[player.currentCountry] || COUNTRIES.japan;
@@ -35,6 +42,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   const currentCond = conditionLabels[player.condition] || conditionLabels.normal;
 
+  const canAutoAdvance = daysUntilMatch !== undefined && daysUntilMatch > 5 && !isAutoAdvancing && !isProcessingNextDay && !gameState.isRetired;
+
   return (
     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-3">
@@ -42,18 +51,34 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Brand & Date */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-sm shadow">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-black text-white text-sm shadow">
                 FL
               </div>
               <div>
-                <div className="text-base font-black tracking-wider text-white flex items-center gap-1.5">
-                  FOOTBALL LIFE
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-black tracking-wider text-white">
+                    FOOTBALL LIFE
+                  </span>
+                  {daysUntilMatch !== undefined && (
+                    daysUntilMatch === 0 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold animate-pulse">
+                        試合当日
+                      </span>
+                    ) : daysUntilMatch <= 5 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[10px] font-bold">
+                        試合 {daysUntilMatch}日前
+                      </span>
+                    ) : null
+                  )}
                 </div>
-                <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                  <span>{currentDate}</span>
+                <div className="text-[11px] text-slate-300 flex items-center gap-2 font-medium">
+                  <span className="text-emerald-400 font-bold font-mono flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-emerald-400" />
+                    {formatDateJapanese(currentDate)}
+                  </span>
                   <span className="text-slate-600">•</span>
-                  <span className="text-emerald-400 font-semibold">{player.age}歳</span>
+                  <span className="text-slate-200">{player.age}歳</span>
                   <span className="text-slate-600">•</span>
                   <span>{country.flag} {player.schoolName}</span>
                 </div>
@@ -62,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Quick Nav & Main Action */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {/* Smartphone Button */}
             <button
               id="header_phone_btn"
@@ -89,13 +114,35 @@ export const Header: React.FC<HeaderProps> = ({
               <Settings className="w-4 h-4" />
             </button>
 
-            {/* Next Day Action Button */}
+            {/* "自動" Button: advances strictly to 5 days before next match */}
+            <button
+              id="header_auto_btn"
+              onClick={onAutoAdvance}
+              disabled={!canAutoAdvance}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                canAutoAdvance
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-950/40 active:scale-95'
+                  : 'bg-slate-800/80 text-slate-500 border border-slate-700/50 cursor-not-allowed opacity-50'
+              }`}
+              title={
+                canAutoAdvance
+                  ? `次の試合の5日前まで自動進行（あと${daysUntilMatch}日）`
+                  : daysUntilMatch !== undefined && daysUntilMatch <= 5
+                  ? `現在試合5日前以内のため利用できません。「次の日へ」で1日ずつ進めてください。`
+                  : '自動進行は利用できません'
+              }
+            >
+              <FastForward className={`w-3.5 h-3.5 ${isAutoAdvancing ? 'animate-spin' : ''}`} />
+              <span>{isAutoAdvancing ? '自動進行中...' : '自動'}</span>
+            </button>
+
+            {/* Next Day Action Button: 1 day at a time */}
             <button
               id="header_next_day_btn"
               onClick={onNextDay}
-              disabled={isProcessingNextDay || gameState.isRetired}
+              disabled={isProcessingNextDay || isAutoAdvancing || gameState.isRetired}
               className={`px-4 py-2 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                isProcessingNextDay
+                isProcessingNextDay || isAutoAdvancing
                   ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40 active:scale-95'
               }`}

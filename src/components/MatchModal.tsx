@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { GameState, MatchFixture, MatchMoment } from '../types/footballLife';
-import { evaluateLineupRole, generateMatchMoments, simulateMatchResults, updateStandingsWithResult } from '../services/matchEngine';
+import { GameState, MatchFixture, MatchMoment, OffSeasonData } from '../types/footballLife';
+import { evaluateLineupRole, generateMatchMoments, simulateMatchResults, simulateMatchdayForAllTeams, calculatePlayerOVR } from '../services/matchEngine';
 import { Shield, Trophy, Activity, ArrowRight, CheckCircle2, XCircle, Award, Star, Flame } from 'lucide-react';
 
 interface MatchModalProps {
@@ -93,12 +93,12 @@ export const MatchModal: React.FC<MatchModalProps> = ({
 
     const { updatedFixture, playerRating, playerGoals, playerAssists, coachTrustDelta, fansGained, ovrIncreased, fatigueCost } = matchResultData;
 
-    // Update league standings
-    const updatedStandings = updateStandingsWithResult(gameState.leagueStandings, updatedFixture);
-
-    // Update fixtures list
-    const updatedFixtures = gameState.leagueFixtures.map(f => 
-      f.id === updatedFixture.id ? updatedFixture : f
+    // Simulate all matches of this matchday and update standings for all 8 clubs
+    const { updatedStandings, updatedFixtures } = simulateMatchdayForAllTeams(
+      gameState.leagueStandings,
+      gameState.leagueFixtures,
+      fixture.matchday,
+      updatedFixture
     );
 
     // Update player
@@ -108,7 +108,9 @@ export const MatchModal: React.FC<MatchModalProps> = ({
     updatedPlayer.fans += fansGained;
 
     if (ovrIncreased) {
-      updatedPlayer.ovr += 1;
+      updatedPlayer.ovr = Math.min(99, updatedPlayer.ovr + 1);
+    } else {
+      updatedPlayer.ovr = calculatePlayerOVR(updatedPlayer.stats, updatedPlayer.currentPosition);
     }
 
     // Career timeline note if first goal or big rating
@@ -124,6 +126,34 @@ export const MatchModal: React.FC<MatchModalProps> = ({
       });
     }
 
+    // Check if season is complete
+    const isSeasonComplete = updatedFixtures.every(f => f.played);
+    let activeOffSeason: OffSeasonData | null = null;
+
+    if (isSeasonComplete) {
+      const teamRankIndex = updatedStandings.findIndex(s => s.teamName === updatedPlayer.currentTeam.name);
+      const finalPosition = teamRankIndex >= 0 ? teamRankIndex + 1 : 4;
+      const isChampion = finalPosition === 1;
+
+      const playerMatches = updatedFixtures.filter(f => f.playerPlayed);
+      const totalGoals = playerMatches.reduce((acc, f) => acc + (f.playerGoals || 0), 0);
+      const totalAssists = playerMatches.reduce((acc, f) => acc + (f.playerAssists || 0), 0);
+
+      activeOffSeason = {
+        seasonNumber: gameState.currentSeason,
+        finalPosition,
+        totalTeams: updatedStandings.length || 8,
+        isChampion,
+        playerMatchesPlayed: playerMatches.length,
+        playerGoals: totalGoals,
+        playerAssists: totalAssists,
+        teamPoints: updatedStandings[teamRankIndex]?.points || 0,
+        teamWon: updatedStandings[teamRankIndex]?.won || 0,
+        teamDrawn: updatedStandings[teamRankIndex]?.drawn || 0,
+        teamLost: updatedStandings[teamRankIndex]?.lost || 0
+      };
+    }
+
     const updatedState: GameState = {
       ...gameState,
       player: updatedPlayer,
@@ -131,6 +161,7 @@ export const MatchModal: React.FC<MatchModalProps> = ({
       leagueStandings: updatedStandings,
       currentMatchday: gameState.currentMatchday + 1,
       activeMatch: null,
+      activeOffSeason,
       timeline: updatedTimeline,
       dailyLogs: [
         {

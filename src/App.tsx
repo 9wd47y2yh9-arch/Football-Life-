@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameState, Position, Gender } from './types/footballLife';
 import { loadGameState, saveGameState, clearGameState, createNewGame } from './services/storage';
-import { advanceToNextDay } from './services/gameEngine';
+import { advanceToNextDay, advanceSingleAutoStep, getDaysUntilNextMatch } from './services/gameEngine';
 import { Header } from './components/Header';
 import { HomeDashboard } from './components/HomeDashboard';
+import { ScheduleView } from './components/ScheduleView';
 import { TrainingView } from './components/TrainingView';
 import { LeagueStandingsView } from './components/LeagueStandingsView';
 import { TransferView } from './components/TransferView';
@@ -15,17 +16,26 @@ import { MatchModal } from './components/MatchModal';
 import { NewGameModal } from './components/NewGameModal';
 import { SettingsModal } from './components/SettingsModal';
 import { EventModal } from './components/EventModal';
-import { Home, Dumbbell, Trophy, ArrowRightLeft, Users, BookOpen, Clock } from 'lucide-react';
+import { FaceToFaceModal } from './components/FaceToFaceModal';
+import { OffSeasonModal } from './components/OffSeasonModal';
+import { Home, Calendar, Dumbbell, Trophy, ArrowRightLeft, Users, BookOpen, Clock } from 'lucide-react';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'training' | 'league' | 'transfer' | 'relationships' | 'school' | 'career'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'training' | 'league' | 'transfer' | 'relationships' | 'school' | 'career'>('home');
   const [isSmartphoneOpen, setIsSmartphoneOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
   const [isProcessingNextDay, setIsProcessingNextDay] = useState(false);
+  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
 
-  // Initialize Game State on mount
+  // Ref to hold running auto advance timer
+  const autoTimerRef = useRef<any>(null);
+  // Ref to keep track of latest state inside timer callback
+  const stateRef = useRef<GameState | null>(null);
+  stateRef.current = gameState;
+
+  // Initialize Game State on mount - strictly preserve existing save data without modification
   useEffect(() => {
     const saved = loadGameState();
     if (saved) {
@@ -39,6 +49,83 @@ export default function App() {
       saveGameState(gameState);
     }
   }, [gameState]);
+
+  // Clean up auto timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoTimerRef.current) {
+        clearInterval(autoTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Stop auto advance helper
+  const stopAutoAdvance = () => {
+    if (autoTimerRef.current) {
+      clearInterval(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+    setIsAutoAdvancing(false);
+  };
+
+  // Handle "自動" progression button:
+  // Advances day-by-day until strictly 5 days before the next match fixture, then stops!
+  const handleAutoAdvance = () => {
+    if (!gameState || isAutoAdvancing || isProcessingNextDay || gameState.isRetired || gameState.activeOffSeason) {
+      return;
+    }
+
+    const currentDaysUntil = getDaysUntilNextMatch(gameState);
+    if (currentDaysUntil <= 5) {
+      return; // Already within 5 days of next match, manual day progression only
+    }
+
+    setIsAutoAdvancing(true);
+
+    autoTimerRef.current = setInterval(() => {
+      const current = stateRef.current;
+      if (!current) {
+        stopAutoAdvance();
+        return;
+      }
+
+      // Check stopping conditions before step
+      if (current.activeOffSeason || (current.leagueFixtures && current.leagueFixtures.every(f => f.played))) {
+        stopAutoAdvance();
+        return;
+      }
+
+      const daysBeforeStep = getDaysUntilNextMatch(current);
+      if (daysBeforeStep <= 5) {
+        stopAutoAdvance();
+        return;
+      }
+
+      // Execute 1 daily step
+      const nextState = advanceSingleAutoStep(current);
+      setGameState(nextState);
+
+      // Check stopping conditions after step:
+      // 1. Pending interactive events (e.g. story choices)
+      if ((nextState.pendingEvents || []).length > 0) {
+        stopAutoAdvance();
+        return;
+      }
+
+      // 2. Off-season triggered
+      if (nextState.activeOffSeason) {
+        stopAutoAdvance();
+        return;
+      }
+
+      // 3. Reached 5 days before next match! Stop progression cleanly.
+      const daysAfterStep = getDaysUntilNextMatch(nextState);
+      if (daysAfterStep <= 5) {
+        stopAutoAdvance();
+        return;
+      }
+    }, 70); // 70ms tick gives responsive, smooth visual day countdown (e.g. 6月2日 -> 6月3日 ... -> 6月15日)
+  };
 
   // Handle New Game Creation
   const handleStartNewGame = (config: {
@@ -57,9 +144,9 @@ export default function App() {
     saveGameState(newGame);
   };
 
-  // Handle Next Day
+  // Handle Next Day (1 day at a time: 5日前 -> 4日前 -> 3日前 -> 2日前 -> 1日前 -> 試合当日)
   const handleNextDay = () => {
-    if (!gameState || isProcessingNextDay || gameState.isRetired) return;
+    if (!gameState || isProcessingNextDay || isAutoAdvancing || gameState.isRetired) return;
 
     setIsProcessingNextDay(true);
     setTimeout(() => {
@@ -67,13 +154,13 @@ export default function App() {
         if (!prev) return null;
         const nextState = advanceToNextDay(prev);
         // If today is a matchday, auto-notify
-        if (nextState.activeMatch) {
+        if (nextState.activeMatch || nextState.leagueFixtures.some(f => f.date === nextState.currentDate && !f.played)) {
           setIsMatchModalOpen(true);
         }
         return nextState;
       });
       setIsProcessingNextDay(false);
-    }, 280);
+    }, 250);
   };
 
   // Handle Reset Game
@@ -147,6 +234,9 @@ export default function App() {
   // Active pending event (e.g. Dual Nationality choice or School event)
   const currentPendingEvent = gameState.pendingEvents[0];
 
+  // Days until next match
+  const daysUntilNextMatch = getDaysUntilNextMatch(gameState);
+
   // Active fixture for match modal
   const activeFixture = gameState.activeMatch || gameState.leagueFixtures.find(f => !f.played) || gameState.leagueFixtures[0];
 
@@ -156,9 +246,12 @@ export default function App() {
       <Header
         gameState={gameState}
         onNextDay={handleNextDay}
+        onAutoAdvance={handleAutoAdvance}
+        daysUntilMatch={daysUntilNextMatch}
         onOpenSmartphone={() => setIsSmartphoneOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         isProcessingNextDay={isProcessingNextDay}
+        isAutoAdvancing={isAutoAdvancing}
       />
 
       {/* Main Content Area */}
@@ -167,8 +260,9 @@ export default function App() {
         <nav className="bg-slate-900 border border-slate-800 rounded-2xl p-1.5 flex gap-1 overflow-x-auto no-scrollbar shadow-sm">
           {[
             { id: 'home', label: 'ホーム', icon: Home },
+            { id: 'schedule', label: '日程', icon: Calendar },
             { id: 'training', label: '練習・能力', icon: Dumbbell },
-            { id: 'league', label: 'リーグ戦', icon: Trophy },
+            { id: 'league', label: '順位表', icon: Trophy },
             { id: 'transfer', label: '移籍市場', icon: ArrowRightLeft },
             { id: 'relationships', label: '人間関係', icon: Users },
             { id: 'school', label: '学校生活', icon: BookOpen },
@@ -201,7 +295,13 @@ export default function App() {
               onUpdateGameState={setGameState}
               onOpenMatchModal={() => setIsMatchModalOpen(true)}
               onOpenSmartphone={() => setIsSmartphoneOpen(true)}
+              onAutoAdvance={handleAutoAdvance}
+              isAutoAdvancing={isAutoAdvancing}
             />
+          )}
+
+          {activeTab === 'schedule' && (
+            <ScheduleView gameState={gameState} />
           )}
 
           {activeTab === 'training' && (
@@ -264,7 +364,10 @@ export default function App() {
           gameState={gameState}
           fixture={activeFixture}
           onFinishMatch={(updated) => {
-            setGameState(updated);
+            // Post-match flow:
+            // Advance 1 day past the match (e.g. 6月20日 -> 6月21日)
+            const postMatchState = advanceToNextDay(updated);
+            setGameState(postMatchState);
             setIsMatchModalOpen(false);
           }}
           onClose={() => setIsMatchModalOpen(false)}
@@ -284,6 +387,26 @@ export default function App() {
         <EventModal
           event={currentPendingEvent}
           onResolve={handleResolveEvent}
+        />
+      )}
+
+      {/* Face-to-Face Event Modal */}
+      {gameState.activeFaceToFace && (
+        <FaceToFaceModal
+          event={gameState.activeFaceToFace}
+          gameState={gameState}
+          onResolve={(updated) => setGameState(updated)}
+        />
+      )}
+
+      {/* Off-Season Review & Next Season Modal */}
+      {gameState.activeOffSeason && (
+        <OffSeasonModal
+          offSeasonData={gameState.activeOffSeason}
+          gameState={gameState}
+          onProceedToNextSeason={(updated) => {
+            setGameState(updated);
+          }}
         />
       )}
     </div>

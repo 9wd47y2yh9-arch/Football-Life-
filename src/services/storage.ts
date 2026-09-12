@@ -1,7 +1,7 @@
 import { GameState, Position, Gender, Team, Playstyle } from '../types/footballLife';
 import { COUNTRIES, getRandomElement, PLAYSTYLES } from '../data/worldData';
 import { generateInitialCharacters } from './characterEngine';
-import { generateLeagueSeason } from './matchEngine';
+import { generateLeagueSeason, calculatePlayerOVR } from './matchEngine';
 
 const STORAGE_KEY = 'FOOTBALL_LIFE_SAVE_DATA_V1';
 
@@ -75,8 +75,8 @@ export function createNewGame(config: {
     initialStats.pace += 1;
   }
 
-  // Overall rating: 10-year-old begins with OVR 30
-  const ovr = 30;
+  // Overall rating: calculated from stats
+  const ovr = calculatePlayerOVR(initialStats, config.initialPosition);
 
   const initialExp = {
     pace: 0, shooting: 0, passing: 0, dribbling: 0, defending: 0, physical: 0, tacticalSense: 0, mental: 0, stamina: 0
@@ -98,7 +98,8 @@ export function createNewGame(config: {
   const birthDate = `${birthYear}-04-01`;
   const startDate = `${startYear}-04-01`;
 
-  const { fixtures, standings } = generateLeagueSeason(team.name, config.startingCountry, startYear);
+  const { fixtures, standings } = generateLeagueSeason(team.name, config.startingCountry, startYear, 10);
+  const maxMatchday = fixtures.length > 0 ? Math.max(...fixtures.map(f => f.matchday)) : 14;
 
   const snsHandle = `@${config.name.replace(/\s+/g, '').toLowerCase()}_10`;
 
@@ -182,8 +183,10 @@ export function createNewGame(config: {
     leagueFixtures: fixtures,
     leagueStandings: standings,
     currentMatchday: 1,
-    totalMatchdays: fixtures.length,
+    totalMatchdays: maxMatchday,
     activeMatch: null,
+    activeFaceToFace: null,
+    activeOffSeason: null,
     transferOffers: [],
     scoutInterests: [],
     timeline: initialTimeline,
@@ -212,7 +215,13 @@ export function loadGameState(): GameState | null {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return null;
-    return JSON.parse(data) as GameState;
+    const parsed = JSON.parse(data) as GameState;
+    if (!parsed.activeFaceToFace) parsed.activeFaceToFace = null;
+    if (!parsed.activeOffSeason) parsed.activeOffSeason = null;
+    if (!parsed.contacts) parsed.contacts = [];
+    if (!parsed.timeline) parsed.timeline = [];
+    if (!parsed.dailyLogs) parsed.dailyLogs = [];
+    return parsed;
   } catch (err) {
     console.error('Failed to load game state from localStorage:', err);
     return null;

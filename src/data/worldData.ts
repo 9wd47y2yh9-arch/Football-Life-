@@ -94,7 +94,7 @@ export const COUNTRIES: Record<string, CountryData> = {
         coachStyle: 'strict'
       }
     ],
-    famousClubs: ['川崎フロンターレ', '横浜F・マリノス', '浦和レッズ', '鹿島アントラーズ', 'ヴィッセル神戸', 'FC東京', 'ガンバ大阪', '名古屋グランパス']
+    famousClubs: ['ヴィッセル神戸', '川崎フロンターレ', '横浜F・マリノス', '浦和レッズ', 'ガンバ大阪', '鹿島アントラーズ', 'サンフレッチェ広島', 'FC東京', 'セレッソ大阪', '名古屋グランパス']
   },
   spain: {
     id: 'spain',
@@ -152,7 +152,7 @@ export const COUNTRIES: Record<string, CountryData> = {
         coachStyle: 'tactical'
       }
     ],
-    famousClubs: ['Real Madrid', 'FC Barcelona', 'Atlético Madrid', 'Real Sociedad', 'Athletic Club', 'Valencia CF', 'Sevilla FC', 'Real Betis']
+    famousClubs: ['FC Barcelona', 'Real Madrid', 'Atlético Madrid', 'Real Sociedad', 'Athletic Club', 'Valencia CF', 'Sevilla FC', 'Real Betis', 'Villarreal CF']
   },
   england: {
     id: 'england',
@@ -684,124 +684,159 @@ export function getCompatiblePlaystyles(pos: Position): PlaystyleDefinition[] {
 }
 
 export const PRACTICE_ABSENCE_REASONS: Record<PracticeAbsenceReasonId, PracticeAbsenceReason> = {
-  illness: {
-    id: 'illness',
-    label: '体調不良 (発熱・風邪など)',
-    category: 'legitimate',
-    baseTrustImpact: 0,
-    baseAttitudeImpact: 0,
-    coachMessage: '無理して来ても悪化させるだけだ。しっかり体を休めて早く治せよ。'
-  },
-  injury: {
-    id: 'injury',
-    label: '怪我・患部の痛み',
-    category: 'legitimate',
-    baseTrustImpact: 0,
-    baseAttitudeImpact: 0,
-    coachMessage: '怪我の悪化を防ぐのが最優先だ。アイシングとケアに専念しろ。'
-  },
-  school_event: {
-    id: 'school_event',
-    label: '学校行事 (修学旅行・文化祭など)',
-    category: 'legitimate',
-    baseTrustImpact: 0,
-    baseAttitudeImpact: 0,
-    coachMessage: '学校の行事は学生として大切なことだ。気兼ねなく行ってこい。'
-  },
-  exam: {
-    id: 'exam',
-    label: '定期テスト・勉強専念',
+  fatigue: {
+    id: 'fatigue',
+    label: '疲労（激しい疲労の蓄積）',
     category: 'legitimate',
     baseTrustImpact: -1,
     baseAttitudeImpact: -1,
-    coachMessage: '文武両道は大切だ。しっかり点数を取って、終わったらまたボールを蹴ろう。'
+    coachMessage: 'オーバーワークで大怪我をされるよりは休養も戦術だ。しっかり体を休めて明日は集中しろよ。'
+  },
+  illness: {
+    id: 'illness',
+    label: '軽い体調不良（発熱・風邪気味）',
+    category: 'legitimate',
+    baseTrustImpact: 0,
+    baseAttitudeImpact: 0,
+    coachMessage: '体調管理も実力のうちだが、無理して来ても悪化させるだけだ。しっかり治して戻ってこい。'
+  },
+  injury_care: {
+    id: 'injury_care',
+    label: '怪我・患部の違和感（トレーナーと相談）',
+    category: 'legitimate',
+    baseTrustImpact: 0,
+    baseAttitudeImpact: 0,
+    coachMessage: '違和感を放置せず申告したのは賢明だ。アイシングとケアに専念し、無理のないペースで治せ。'
+  },
+  academic: {
+    id: 'academic',
+    label: '学校・学業（テスト勉強・補習）',
+    category: 'legitimate',
+    baseTrustImpact: -1,
+    baseAttitudeImpact: -1,
+    coachMessage: '学生としての本分も大切だ。文武両道でしっかり点数を取って、終わったらまたグラウンドで会おう。'
   },
   family: {
     id: 'family',
-    label: '家族の冠婚葬祭・家庭の用事',
+    label: '家族の事情（冠婚葬祭・家庭都合）',
     category: 'legitimate',
     baseTrustImpact: 0,
     baseAttitudeImpact: 0,
-    coachMessage: '家庭の事情なら仕方ない。落ち着いたら元気に戻っておいで。'
-  },
-  hospital: {
-    id: 'hospital',
-    label: '通院・定期検診',
-    category: 'legitimate',
-    baseTrustImpact: 0,
-    baseAttitudeImpact: 0,
-    coachMessage: '医師の診察を優先してくれ。結果はまた教えてくれよ。'
-  },
-  fatigue: {
-    id: 'fatigue',
-    label: '強い疲労・コンディション調整',
-    category: 'legitimate',
-    baseTrustImpact: -1,
-    baseAttitudeImpact: -1,
-    coachMessage: 'オーバーワークで大怪我をされるよりは休養も戦術だ。明日はしっかり動けよ。'
-  },
-  coach_consulted: {
-    id: 'coach_consulted',
-    label: '監督に事前相談済み',
-    category: 'legitimate',
-    baseTrustImpact: 0,
-    baseAttitudeImpact: 0,
-    coachMessage: '事前に連絡があった通りだな。手続き通り受領した。'
+    coachMessage: '家庭の事情なら仕方ない。落ち着いたら元気にチームに戻っておいで。'
   },
   personal: {
     id: 'personal',
-    label: '個人的な事情',
+    label: '個人的な予定（外せない用事）',
     category: 'doubtful',
     baseTrustImpact: -2,
     baseAttitudeImpact: -2,
-    coachMessage: '何か悩み事でもあるのか？あまり一人で抱え込まずに相談しろよ。'
+    coachMessage: '外せない用事か。あまり練習を優先順位の下に置かないように、自己管理を徹底してくれ。'
   },
-  friend_hangout: {
-    id: 'friend_hangout',
-    label: '友達との先約・お出かけ',
+  solo_practice: {
+    id: 'solo_practice',
+    label: '自主練習を優先（個人メニューに集中）',
     category: 'doubtful',
-    baseTrustImpact: -4,
-    baseAttitudeImpact: -4,
-    coachMessage: '部活やチームの練習より遊びを優先する姿勢は感心しないな。'
+    baseTrustImpact: -2,
+    baseAttitudeImpact: 0,
+    coachMessage: '個人の課題に向き合う向上心は認める。だがサッカーはチームスポーツだ。全体練習の和も大切にしろ。'
   },
-  overslept: {
-    id: 'overslept',
-    label: '寝坊して時間に間に合わなかった',
-    category: 'unexcused',
-    baseTrustImpact: -6,
-    baseAttitudeImpact: -6,
-    coachMessage: '自己管理の甘さだ。プロを目指す自覚が足りないんじゃないか？'
+  rest_needed: {
+    id: 'rest_needed',
+    label: '休養が必要（オーバーワーク防止）',
+    category: 'legitimate',
+    baseTrustImpact: -1,
+    baseAttitudeImpact: 0,
+    coachMessage: '疲労をため込んでパフォーマンスを下げるよりは、計画的な休養が必要な時もあるな。'
   },
-  played: {
-    id: 'played',
-    label: 'ゲームセンターや買い物に遊びに行った',
-    category: 'unexcused',
-    baseTrustImpact: -8,
-    baseAttitudeImpact: -8,
-    coachMessage: '真剣に汗を流している仲間に顔向けできるのか？猛省しろ。'
-  },
-  gaming: {
-    id: 'gaming',
-    label: '家でゲームをしていた',
-    category: 'unexcused',
-    baseTrustImpact: -9,
-    baseAttitudeImpact: -9,
-    coachMessage: '話にならんな。サッカーへの熱意はその程度なのか？'
-  },
-  slacked: {
-    id: 'slacked',
-    label: '単純に練習をサボった（無断・怠惰）',
-    category: 'unexcused',
-    baseTrustImpact: -12,
-    baseAttitudeImpact: -12,
-    coachMessage: 'チームの和と規律を乱す最悪の行為だ。次の試合の起用は見直させてもらう。'
+  coach_consulted: {
+    id: 'coach_consulted',
+    label: '監督・コーチへの相談後（事前承認済み）',
+    category: 'legitimate',
+    baseTrustImpact: 0,
+    baseAttitudeImpact: 0,
+    coachMessage: '事前に相談してくれた通りだな。手続き通り欠席を受理した。次回からまた頼むぞ。'
   },
   other: {
     id: 'other',
-    label: 'その他 (自由記述)',
+    label: 'その他（自由記述）',
     category: 'doubtful',
     baseTrustImpact: -2,
     baseAttitudeImpact: -2,
-    coachMessage: '事情は受け取った。日々の姿勢を怠らないようにしてくれ。'
+    coachMessage: '事情は理解した。日々の練習へのコミットメントを忘れないようにしてくれ。'
+  },
+  unexcused: {
+    id: 'unexcused',
+    label: '無断欠席（規律違反）',
+    category: 'unexcused',
+    baseTrustImpact: -15,
+    baseAttitudeImpact: -15,
+    coachMessage: '連絡もなしに練習をサボるとは何事だ！チームの和と規律を乱す行為は決して看過できない。スタメン起用も見直すぞ！'
   }
 };
+
+export interface RealProClub {
+  id: string;
+  name: string;
+  country: string;
+  countryId: string;
+  level: number; // 1-5
+  reputation: number; // 1-100
+  tier: 'world_class' | 'top_flight' | 'challenger';
+  leagueName: string;
+  minOvr15yo: number;
+}
+
+export const REAL_PRO_CLUBS: RealProClub[] = [
+  // Spain
+  { id: 'barcelona', name: 'FC Barcelona', country: 'スペイン', countryId: 'spain', level: 5, reputation: 95, tier: 'world_class', leagueName: 'La Liga', minOvr15yo: 62 },
+  { id: 'real_madrid', name: 'Real Madrid', country: 'スペイン', countryId: 'spain', level: 5, reputation: 96, tier: 'world_class', leagueName: 'La Liga', minOvr15yo: 63 },
+  { id: 'atletico_madrid', name: 'Atlético Madrid', country: 'スペイン', countryId: 'spain', level: 5, reputation: 88, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 59 },
+  { id: 'real_sociedad', name: 'Real Sociedad', country: 'スペイン', countryId: 'spain', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 56 },
+  { id: 'athletic_club', name: 'Athletic Club', country: 'スペイン', countryId: 'spain', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 56 },
+  { id: 'valencia', name: 'Valencia CF', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 54 },
+  { id: 'sevilla', name: 'Sevilla FC', country: 'スペイン', countryId: 'spain', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 55 },
+  { id: 'real_betis', name: 'Real Betis', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 54 },
+  { id: 'villarreal', name: 'Villarreal CF', country: 'スペイン', countryId: 'spain', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 55 },
+  // England
+  { id: 'man_city', name: 'Manchester City', country: 'イングランド', countryId: 'england', level: 5, reputation: 95, tier: 'world_class', leagueName: 'Premier League', minOvr15yo: 63 },
+  { id: 'liverpool', name: 'Liverpool', country: 'イングランド', countryId: 'england', level: 5, reputation: 94, tier: 'world_class', leagueName: 'Premier League', minOvr15yo: 62 },
+  { id: 'arsenal', name: 'Arsenal', country: 'イングランド', countryId: 'england', level: 5, reputation: 92, tier: 'world_class', leagueName: 'Premier League', minOvr15yo: 61 },
+  { id: 'chelsea', name: 'Chelsea', country: 'イングランド', countryId: 'england', level: 5, reputation: 89, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 60 },
+  { id: 'man_united', name: 'Manchester United', country: 'イングランド', countryId: 'england', level: 5, reputation: 91, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 60 },
+  { id: 'tottenham', name: 'Tottenham Hotspur', country: 'イングランド', countryId: 'england', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 58 },
+  { id: 'newcastle', name: 'Newcastle United', country: 'イングランド', countryId: 'england', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 57 },
+  { id: 'aston_villa', name: 'Aston Villa', country: 'イングランド', countryId: 'england', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 56 },
+  { id: 'brighton', name: 'Brighton & Hove Albion', country: 'イングランド', countryId: 'england', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 55 },
+  // Germany
+  { id: 'bayern', name: 'Bayern Munich', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 94, tier: 'world_class', leagueName: 'Bundesliga', minOvr15yo: 62 },
+  { id: 'dortmund', name: 'Borussia Dortmund', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 90, tier: 'world_class', leagueName: 'Bundesliga', minOvr15yo: 59 },
+  { id: 'leverkusen', name: 'Bayer Leverkusen', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 88, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 58 },
+  { id: 'leipzig', name: 'RB Leipzig', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 57 },
+  { id: 'frankfurt', name: 'Eintracht Frankfurt', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 55 },
+  { id: 'stuttgart', name: 'VfB Stuttgart', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 54 },
+  // France
+  { id: 'psg', name: 'Paris Saint-Germain', country: 'フランス', countryId: 'france', level: 5, reputation: 93, tier: 'world_class', leagueName: 'Ligue 1', minOvr15yo: 62 },
+  { id: 'monaco', name: 'AS Monaco', country: 'フランス', countryId: 'france', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'Ligue 1', minOvr15yo: 56 },
+  { id: 'marseille', name: 'Olympique de Marseille', country: 'フランス', countryId: 'france', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'Ligue 1', minOvr15yo: 56 },
+  { id: 'lyon', name: 'Olympique Lyonnais', country: 'フランス', countryId: 'france', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'Ligue 1', minOvr15yo: 55 },
+  // Italy
+  { id: 'inter', name: 'Inter', country: 'イタリア', countryId: 'italy', level: 5, reputation: 92, tier: 'world_class', leagueName: 'Serie A', minOvr15yo: 61 },
+  { id: 'ac_milan', name: 'AC Milan', country: 'イタリア', countryId: 'italy', level: 5, reputation: 91, tier: 'world_class', leagueName: 'Serie A', minOvr15yo: 61 },
+  { id: 'juventus', name: 'Juventus', country: 'イタリア', countryId: 'italy', level: 5, reputation: 91, tier: 'world_class', leagueName: 'Serie A', minOvr15yo: 61 },
+  { id: 'napoli', name: 'Napoli', country: 'イタリア', countryId: 'italy', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'Serie A', minOvr15yo: 58 },
+  { id: 'roma', name: 'AS Roma', country: 'イタリア', countryId: 'italy', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'Serie A', minOvr15yo: 56 },
+  { id: 'atalanta', name: 'Atalanta', country: 'イタリア', countryId: 'italy', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'Serie A', minOvr15yo: 56 },
+  // Japan (J1 League)
+  { id: 'vissel_kobe', name: 'ヴィッセル神戸', country: '日本', countryId: 'japan', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 52 },
+  { id: 'kawasaki_frontale', name: '川崎フロンターレ', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
+  { id: 'yokohama_f_marinos', name: '横浜F・マリノス', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
+  { id: 'urawa_reds', name: '浦和レッズ', country: '日本', countryId: 'japan', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 52 },
+  { id: 'sanfrecce_hiroshima', name: 'サンフレッチェ広島', country: '日本', countryId: 'japan', level: 4, reputation: 76, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
+  { id: 'kashima_antlers', name: '鹿島アントラーズ', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
+  { id: 'gamba_osaka', name: 'ガンバ大阪', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 49 },
+  { id: 'cerezo_osaka', name: 'セレッソ大阪', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 49 },
+  { id: 'fc_tokyo', name: 'FC東京', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 49 },
+  { id: 'nagoya_grampus', name: '名古屋グランパス', country: '日本', countryId: 'japan', level: 3, reputation: 74, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 50 },
+  { id: 'machida_zelvia', name: '町田ゼルビア', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 48 },
+  { id: 'avispa_fukuoka', name: 'アビスパ福岡', country: '日本', countryId: 'japan', level: 3, reputation: 71, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 48 }
+];

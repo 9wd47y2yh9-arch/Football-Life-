@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GameState, TransferOffer } from '../types/footballLife';
-import { completeTransfer } from '../services/transferEngine';
-import { Building2, Globe, DollarSign, Eye, ArrowRight, Check, X, Shield, FileText, Send, Sparkles } from 'lucide-react';
+import { completeTransfer, negotiateOfferTerms, declineAndStayWithCurrentClub } from '../services/transferEngine';
+import { Building2, Globe, DollarSign, Eye, ArrowRight, Check, X, Shield, FileText, Send, Sparkles, MessageSquare, Award, HeartHandshake } from 'lucide-react';
 
 interface TransferViewProps {
   gameState: GameState;
@@ -10,7 +10,8 @@ interface TransferViewProps {
 
 export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateGameState }) => {
   const { player, transferOffers, scoutInterests } = gameState;
-  const [activeOffer, setActiveOffer] = useState<TransferOffer | null>(null);
+  const [activeNegotiateOfferId, setActiveNegotiateOfferId] = useState<string | null>(null);
+  const [negotiateFeedback, setNegotiateFeedback] = useState<{ [key: string]: string }>({});
   const [requestReason, setRequestReason] = useState('もっと高いレベルへステップアップしたい');
   const [customReason, setCustomReason] = useState('');
   const [requestFeedback, setRequestFeedback] = useState<string | null>(null);
@@ -23,10 +24,9 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
         o.id === offer.id ? { ...o, step: nextStep } : o
       )
     }));
-    setActiveOffer({ ...offer, step: nextStep });
   };
 
-  // Finalize Transfer
+  // 1. Finalize Transfer (受ける)
   const handleAcceptTransfer = (offer: TransferOffer) => {
     const transferResult = completeTransfer(gameState, offer);
     onUpdateGameState(prev => ({
@@ -35,22 +35,41 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
       dailyLogs: [
         {
           date: prev.currentDate,
-          text: `【移籍成立】${offer.clubName}（${offer.country}）への完全移籍が成立しました！`,
+          text: offer.isFifteenYoOffer
+            ? `【15歳プロ契約誕生！】${offer.clubName}（${offer.country}）と15歳プロ特例契約を締結！プロ選手としての人生が始まりました！`
+            : `【移籍成立】${offer.clubName}（${offer.country}）への完全移籍が成立しました！`,
           type: 'event'
         },
         ...prev.dailyLogs
       ]
     }));
-    setActiveOffer(null);
   };
 
-  // Decline Offer
+  // 2. Decline Offer (断る)
   const handleDeclineOffer = (offerId: string) => {
     onUpdateGameState(prev => ({
       ...prev,
       transferOffers: prev.transferOffers.filter(o => o.id !== offerId)
     }));
-    setActiveOffer(null);
+  };
+
+  // 3. Negotiate Terms (交渉する)
+  const handleNegotiate = (offerId: string, demandType: 'higher_wage' | 'guaranteed_starter') => {
+    const { updatedOffers, feedback } = negotiateOfferTerms(gameState, offerId, demandType);
+    setNegotiateFeedback(prev => ({ ...prev, [offerId]: feedback }));
+    onUpdateGameState(prev => ({
+      ...prev,
+      transferOffers: updatedOffers
+    }));
+  };
+
+  // 4. Stay with Current Club (現在のクラブに残る)
+  const handleStayWithCurrentClub = (offerId: string) => {
+    const result = declineAndStayWithCurrentClub(gameState, offerId);
+    onUpdateGameState(prev => ({
+      ...prev,
+      ...result
+    }));
   };
 
   // Submit Player-Initiated Transfer Request
@@ -108,18 +127,20 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
               ? `${Math.floor(player.marketValue / 10000)} 万円`
               : `${player.marketValue} 円`}
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">※年齢、OVR、試合実績により変動</div>
+          <div className="text-[10px] text-slate-500 mt-1">※年齢、OVR、能力、公式戦実績により変動</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md">
           <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-            <span>契約給与（年俸）</span>
+            <span>契約形態 / 年俸</span>
             <Building2 className="w-4 h-4 text-sky-400" />
           </div>
           <div className="text-xl font-black text-white">
-            {player.wage > 0 ? `${(player.wage / 10000).toLocaleString()} 万円` : 'アマチュア / アカデミー生'}
+            {player.wage > 0 ? `${(player.wage / 10000).toLocaleString()} 万円 / 年` : 'アマチュア / アカデミー生'}
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">※プロ契約後に年俸交渉が発生</div>
+          <div className="text-[10px] text-slate-500 mt-1">
+            {player.age >= 15 ? '※15歳から卓越した才能を持つ選手へプロオファーが発生' : '※15歳以上でプロ特例契約が可能'}
+          </div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md">
@@ -128,7 +149,9 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
             <Shield className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-sm font-black text-emerald-400 truncate">{player.currentTeam.name}</div>
-          <div className="text-[10px] text-slate-500 mt-1">役割: {player.teamRole === 'starter' ? 'レギュラー' : '控え'}</div>
+          <div className="text-[10px] text-slate-500 mt-1">
+            役割: {player.teamRole === 'starter' ? 'レギュラー（先発）' : 'サブ（控え）'} | 指揮官信頼度: {player.coachTrust}%
+          </div>
         </div>
       </div>
 
@@ -141,7 +164,7 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
               視察スカウト・関心を寄せるクラブ（スカウト網）
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              公式戦や大会でのプレーをモニタリングしている国内外のクラブスカウト一覧
+              公式戦や大会でのプレーをモニタリングしている国内外の実在クラブスカウト一覧
             </p>
           </div>
           <span className="text-xs text-sky-400 font-bold bg-sky-950/60 px-2.5 py-1 rounded-full border border-sky-800">
@@ -177,10 +200,10 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
           <div>
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <FileText className="w-4 h-4 text-emerald-400" />
-              届いている移籍・加入オファー（多段階交渉システム）
+              届いている移籍・プロ加入オファー
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              オファーはワンボタンで決まりません。条件確認・監督との相談・交渉を経て受諾・拒否を決定します。
+              「受ける」「断る」「交渉する」「現在のクラブに残る」から選択できます。
             </p>
           </div>
           <span className="text-xs text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-800">
@@ -190,103 +213,152 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
 
         {transferOffers.length === 0 ? (
           <div className="text-xs text-slate-500 text-center py-6">
-            現在、正式な移籍オファーは届いていません。
+            現在、正式なオファーは届いていません。15歳以上で高いOVRや試合実績を出すと、実在プロクラブからのスカウトオファーが届きます。
           </div>
         ) : (
-          <div className="space-y-3">
-            {transferOffers.map((offer) => (
-              <div
-                key={offer.id}
-                className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-bold text-white flex items-center gap-2">
-                      <span>{offer.clubName}</span>
-                      <span className="text-xs text-amber-400">★{offer.level}</span>
-                      <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
-                        {offer.country}
+          <div className="space-y-4">
+            {transferOffers.map((offer) => {
+              const is15Pro = offer.isFifteenYoOffer;
+              const feedback = negotiateFeedback[offer.id] || offer.negotiationFeedback;
+
+              return (
+                <div
+                  key={offer.id}
+                  className={`bg-slate-950 p-4 rounded-xl border ${
+                    is15Pro ? 'border-amber-500/60 shadow-lg shadow-amber-950/30' : 'border-slate-800'
+                  } space-y-3.5`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-bold text-white flex flex-wrap items-center gap-2">
+                        {is15Pro && (
+                          <span className="text-[11px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                            <Sparkles className="w-3 h-3 text-slate-950" />
+                            15歳プロ特例契約オファー
+                          </span>
+                        )}
+                        {offer.isProContract && !is15Pro && (
+                          <span className="text-[10px] font-bold bg-sky-950 text-sky-300 border border-sky-800 px-2 py-0.5 rounded-full">
+                            実在プロクラブ
+                          </span>
+                        )}
+                        <span className="text-base text-white">{offer.clubName}</span>
+                        {offer.proLeagueName && (
+                          <span className="text-[11px] text-sky-400 font-medium">({offer.proLeagueName})</span>
+                        )}
+                        <span className="text-xs text-amber-400">★{offer.level}</span>
+                        <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                          {offer.country}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-300 mt-1">{offer.notes}</div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold">
+                        {offer.step === 'contact' ? '初期打診' : offer.step === 'review' ? '条件提示中' : offer.step === 'negotiating' ? '条件交渉中' : '最終決断'}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-400 mt-0.5">{offer.notes}</div>
                   </div>
 
-                  {/* Negotiation Step Badge */}
-                  <div className="text-right">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700 font-semibold">
-                      {offer.step === 'contact' ? '初期接触・打診' : offer.step === 'offer' ? '条件確認中' : offer.step === 'in_discussion' ? '監督と相談中' : '最終判断'}
-                    </span>
+                  {/* Offer Terms */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs bg-slate-900 p-3 rounded-lg border border-slate-800">
+                    <div>
+                      <span className="text-slate-500 text-[10px] block">役割・起用方針:</span>
+                      <span className="text-slate-200 font-bold">{offer.rolePromise}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[10px] block">提示年俸:</span>
+                      <span className="text-amber-400 font-bold">
+                        {offer.wage > 0 ? `${(offer.wage / 10000).toLocaleString()} 万円 / 年` : '育成費補助'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[10px] block">移籍金:</span>
+                      <span className="text-slate-200 font-medium">
+                        {offer.transferFee > 0 ? `${Math.floor(offer.transferFee / 10000).toLocaleString()} 万円` : '0円（育成年代・特例）'}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Offer Terms */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                  <div>
-                    <span className="text-slate-500 text-[10px] block">役割の約束:</span>
-                    <span className="text-slate-200 font-medium">{offer.rolePromise}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 text-[10px] block">提示年俸:</span>
-                    <span className="text-slate-200 font-medium">{offer.wage > 0 ? `${(offer.wage / 10000).toLocaleString()} 万円` : '育成費補助'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 text-[10px] block">移籍金:</span>
-                    <span className="text-slate-200 font-medium">{Math.floor(offer.transferFee / 10000).toLocaleString()} 万円</span>
-                  </div>
-                </div>
-
-                {/* Action Buttons based on negotiation step */}
-                <div className="flex flex-wrap gap-2 justify-end pt-1">
-                  {offer.step === 'contact' && (
-                    <button
-                      onClick={() => handleAdvanceOfferStep(offer, 'review')}
-                      className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>詳しい条件の話を聞く</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                  {/* Negotiation Feedback (if any) */}
+                  {feedback && (
+                    <div className="p-3 rounded-xl bg-slate-900/90 border border-sky-800/80 text-xs text-sky-200">
+                      {feedback}
+                    </div>
                   )}
 
-                  {offer.step === 'review' && (
-                    <button
-                      onClick={() => handleAdvanceOfferStep(offer, 'consult_coach')}
-                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>現クラブの監督に相談する</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                  {/* Interactive Negotiation Drawer */}
+                  {activeNegotiateOfferId === offer.id && (
+                    <div className="p-3.5 bg-slate-900 rounded-xl border border-purple-800/80 space-y-2.5">
+                      <div className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        クラブ強化担当との条件交渉（残り交渉可能: {Math.max(0, 2 - (offer.negotiationRound || 0))} 回）
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleNegotiate(offer.id, 'higher_wage')}
+                          className="px-3 py-1.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700 text-xs font-bold transition cursor-pointer"
+                        >
+                          💰 年俸アップを要求する（+25%）
+                        </button>
+                        <button
+                          onClick={() => handleNegotiate(offer.id, 'guaranteed_starter')}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-700 text-xs font-bold transition cursor-pointer"
+                        >
+                          ⚽ スタメン出場確約を要求する
+                        </button>
+                        <button
+                          onClick={() => setActiveNegotiateOfferId(null)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-400 text-xs transition cursor-pointer"
+                        >
+                          閉じる
+                        </button>
+                      </div>
+                    </div>
                   )}
 
-                  {offer.step === 'consult_coach' && (
-                    <button
-                      onClick={() => handleAdvanceOfferStep(offer, 'negotiating')}
-                      className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>熟考し、最終決断へ進む</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  {offer.step === 'negotiating' && (
+                  {/* 4 Core User Choice Buttons: 受ける / 断る / 交渉する / 現在のクラブに残る */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-900">
+                    {/* 1. 受ける */}
                     <button
                       onClick={() => handleAcceptTransfer(offer)}
-                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-md shadow-emerald-950"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>オファーを受諾して移籍決定！</span>
+                      <Check className="w-4 h-4" />
+                      <span>{is15Pro ? 'プロ契約を結んで移籍する（受ける）' : 'オファーを受ける（移籍決定）'}</span>
                     </button>
-                  )}
 
-                  <button
-                    onClick={() => handleDeclineOffer(offer.id)}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                    <span>辞退・断る</span>
-                  </button>
+                    {/* 2. 交渉する */}
+                    <button
+                      onClick={() => setActiveNegotiateOfferId(activeNegotiateOfferId === offer.id ? null : offer.id)}
+                      className="px-3 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>交渉する</span>
+                    </button>
+
+                    {/* 3. 現在のクラブに残る */}
+                    <button
+                      onClick={() => handleStayWithCurrentClub(offer.id)}
+                      className="px-3 py-2 rounded-xl bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <HeartHandshake className="w-3.5 h-3.5" />
+                      <span>現在のクラブに残る（残留）</span>
+                    </button>
+
+                    {/* 4. 断る */}
+                    <button
+                      onClick={() => handleDeclineOffer(offer.id)}
+                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>断る</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

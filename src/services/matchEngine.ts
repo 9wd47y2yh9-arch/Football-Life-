@@ -1,95 +1,199 @@
-import { GameState, MatchFixture, LeagueStanding, MatchMoment, MatchEventLog, Position } from '../types/footballLife';
+import { GameState, MatchFixture, LeagueStanding, MatchMoment, MatchEventLog, Position, PlayerStats } from '../types/footballLife';
 import { COUNTRIES, getRandomElement, getRandomInt } from '../data/worldData';
 
+/**
+ * Calculates Position-Weighted OVR (Overall Rating)
+ */
+export function calculatePlayerOVR(stats: PlayerStats, position: Position): number {
+  if (!stats) return 30;
+  let total = 0;
+  switch (position) {
+    case 'CF':
+    case 'ST':
+      total = (stats.shooting || 30) * 0.30 + (stats.pace || 30) * 0.18 + (stats.dribbling || 30) * 0.16 + (stats.physical || 30) * 0.14 + (stats.tacticalSense || 30) * 0.11 + (stats.passing || 30) * 0.11;
+      break;
+    case 'WG':
+      total = (stats.pace || 30) * 0.28 + (stats.dribbling || 30) * 0.25 + (stats.passing || 30) * 0.18 + (stats.shooting || 30) * 0.16 + (stats.stamina || 30) * 0.13;
+      break;
+    case 'OMF':
+      total = (stats.passing || 30) * 0.26 + (stats.dribbling || 30) * 0.22 + (stats.tacticalSense || 30) * 0.20 + (stats.shooting || 30) * 0.16 + (stats.pace || 30) * 0.16;
+      break;
+    case 'CMF':
+      total = (stats.passing || 30) * 0.25 + (stats.stamina || 30) * 0.20 + (stats.tacticalSense || 30) * 0.18 + (stats.dribbling || 30) * 0.14 + (stats.defending || 30) * 0.13 + (stats.physical || 30) * 0.10;
+      break;
+    case 'DMF':
+      total = (stats.defending || 30) * 0.28 + (stats.physical || 30) * 0.22 + (stats.passing || 30) * 0.18 + (stats.tacticalSense || 30) * 0.18 + (stats.stamina || 30) * 0.14;
+      break;
+    case 'CB':
+      total = (stats.defending || 30) * 0.35 + (stats.physical || 30) * 0.25 + (stats.tacticalSense || 30) * 0.18 + (stats.pace || 30) * 0.12 + (stats.stamina || 30) * 0.10;
+      break;
+    case 'SB':
+      total = (stats.pace || 30) * 0.26 + (stats.stamina || 30) * 0.22 + (stats.defending || 30) * 0.20 + (stats.passing || 30) * 0.18 + (stats.dribbling || 30) * 0.14;
+      break;
+    case 'GK':
+      total = (stats.defending || 30) * 0.40 + (stats.physical || 30) * 0.25 + (stats.mental || 30) * 0.20 + (stats.tacticalSense || 30) * 0.15;
+      break;
+    default:
+      total = ((stats.pace || 30) + (stats.shooting || 30) + (stats.passing || 30) + (stats.dribbling || 30) + (stats.defending || 30) + (stats.physical || 30) + (stats.tacticalSense || 30) + (stats.mental || 30) + (stats.stamina || 30)) / 9;
+  }
+  return Math.max(20, Math.min(99, Math.round(total)));
+}
+
+/**
+ * Robust, bug-free lineup role evaluation.
+ * High coach trust (85-100), low fatigue, and healthy status guarantees starter!
+ * Cured injuries restore immediate match eligibility without any permanent lockouts.
+ */
 export function evaluateLineupRole(gameState: GameState): 'starter' | 'bench' | 'out_of_squad' {
   const { player } = gameState;
 
-  // 1. If injured, strictly out of squad
-  if (player.injury) {
+  // 1. If currently injured, strictly out of squad
+  if (player.injury && player.injury.daysRemaining > 0) {
     return 'out_of_squad';
   }
 
-  // 2. High fatigue (>80) leads to bench or out of squad for rest
-  if (player.fatigue >= 85) {
+  // 2. Severe fatigue checks
+  if (player.fatigue >= 88) {
     return 'out_of_squad';
   }
-  if (player.fatigue >= 72) {
+  if (player.fatigue >= 76) {
     return 'bench';
   }
 
-  // 3. Condition weighting
-  let conditionBonus = 0;
-  if (player.condition === 'superb') conditionBonus = 12;
-  else if (player.condition === 'good') conditionBonus = 5;
-  else if (player.condition === 'poor') conditionBonus = -8;
-  else if (player.condition === 'terrible') conditionBonus = -18;
+  // 3. Absolute Guarantee Rule: Trust >= 85 and fatigue <= 45 with decent condition is GUARANTEED starter
+  if (player.coachTrust >= 85 && player.fatigue <= 45 && player.condition !== 'terrible') {
+    return 'starter';
+  }
 
-  // 4. Coach trust factor
-  const trustScore = (player.coachTrust - 50) * 0.4;
+  // 4. Guaranteed at least Bench if Trust >= 65 and fatigue <= 60
+  const guaranteedBench = player.coachTrust >= 65 && player.fatigue <= 60;
 
-  // 5. OVR vs Team level requirement
-  // Team level 1-5 maps to expected OVR ~45-75
-  const expectedOvr = 42 + player.currentTeam.level * 6;
+  // 5. Age-scaled expected OVR for fair progression:
+  // Age 10-12 (Junior): ~28-32
+  // Age 13-15 (Junior High): ~38-44
+  // Age 16-18 (High School): ~50-58
+  // Age 19+ (Pro/Adult): ~62-72
+  let ageBaseline = 28;
+  if (player.age >= 19) ageBaseline = 62;
+  else if (player.age >= 16) ageBaseline = 50;
+  else if (player.age >= 13) ageBaseline = 38;
+
+  const teamLevel = player.currentTeam?.level || 1;
+  const expectedOvr = ageBaseline + (teamLevel - 1) * 2.5;
   const ovrDiff = player.ovr - expectedOvr;
 
-  // 6. Practice attitude & consecutive missed practices
-  const attitudePenalty = player.consecutiveMissedPractices * 15;
+  // 6. Condition factor
+  let conditionBonus = 0;
+  if (player.condition === 'superb') conditionBonus = 10;
+  else if (player.condition === 'good') conditionBonus = 4;
+  else if (player.condition === 'poor') conditionBonus = -6;
+  else if (player.condition === 'terrible') conditionBonus = -16;
 
-  const totalEvaluation = ovrDiff * 1.5 + trustScore + conditionBonus - attitudePenalty;
+  // 7. Trust bonus (scaled so 50 is neutral, 80+ is strong)
+  const trustScore = (player.coachTrust - 50) * 0.55;
 
-  if (totalEvaluation >= 5) {
+  // 8. Discipline: only penalize consecutive unexcused missed practices
+  const attitudePenalty = Math.min(25, (player.consecutiveMissedPractices || 0) * 8);
+
+  const totalScore = (ovrDiff * 1.2) + trustScore + conditionBonus - attitudePenalty;
+
+  if (totalScore >= -2) {
     return 'starter';
-  } else if (totalEvaluation >= -12) {
+  } else if (totalScore >= -20 || guaranteedBench) {
     return 'bench';
   } else {
     return 'out_of_squad';
   }
 }
 
-export function generateLeagueSeason(teamName: string, countryId: string, currentYear: number): {
+/**
+ * Generates a full 14-matchday round-robin league schedule for all 8 clubs.
+ * Creates matches for both the player's team and all other clubs.
+ */
+export function generateLeagueSeason(teamName: string, countryId: string, currentYear: number, playerAge = 10): {
   fixtures: MatchFixture[];
   standings: LeagueStanding[];
 } {
   const country = COUNTRIES[countryId] || COUNTRIES.japan;
-  const allTeamNames = [
+
+  // Age-based realistic competition name
+  let competitionName = `${country.name} 全日本U-12育成リーグ`;
+  if (playerAge >= 19) {
+    competitionName = `${country.name} プロフェッショナルリーグ`;
+  } else if (playerAge >= 16) {
+    competitionName = `${country.name} U-18プレミア・プリンスリーグ`;
+  } else if (playerAge >= 13) {
+    competitionName = `${country.name} U-15クラブユース・高円宮杯`;
+  }
+
+  const candidateTeams = [
     teamName,
     ...country.youthTeams.map(t => t.name).filter(n => n !== teamName),
     ...country.famousClubs.slice(0, 4).map(c => `${c} ユース`)
   ];
 
   // Take unique 8 teams
-  const uniqueTeams = Array.from(new Set(allTeamNames)).slice(0, 8);
+  const uniqueTeams = Array.from(new Set(candidateTeams)).slice(0, 8);
   if (!uniqueTeams.includes(teamName)) {
     uniqueTeams[0] = teamName;
   }
-
-  const opponents = uniqueTeams.filter(t => t !== teamName);
+  // If fewer than 8, pad with generic clubs
+  while (uniqueTeams.length < 8) {
+    uniqueTeams.push(`FC アカデミー ${uniqueTeams.length + 1}`);
+  }
 
   const fixtures: MatchFixture[] = [];
-  const totalMatchdays = opponents.length * 2; // Home and Away (e.g. 14 matchdays)
+  const numTeams = uniqueTeams.length; // 8
+  const rounds = numTeams - 1; // 7 rounds per single round robin
 
+  // Berger Round-Robin Pairing Algorithm for 8 teams
+  // We do double round-robin: 14 matchdays
   let currentDate = new Date(`${currentYear}-04-14`);
 
-  for (let md = 1; md <= totalMatchdays; md++) {
-    const oppIndex = (md - 1) % opponents.length;
-    const opponent = opponents[oppIndex];
-    const isPlayerHome = md % 2 === 1;
+  for (let cycle = 0; cycle < 2; cycle++) {
+    for (let round = 0; round < rounds; round++) {
+      const matchday = cycle * rounds + round + 1;
+      // Advance 7 to 10 days per matchday
+      currentDate.setDate(currentDate.getDate() + 7);
+      const dateString = currentDate.toISOString().split('T')[0];
 
-    // Advance 7 to 14 days per matchday
-    currentDate.setDate(currentDate.getDate() + 7);
-    const dateString = currentDate.toISOString().split('T')[0];
+      // Form 4 pairs of matches for this round
+      const roundTeams = [...uniqueTeams];
+      // Polygon rotation: fix index 0, rotate indices 1..7 by 'round'
+      const rotating = roundTeams.slice(1);
+      const rotated: string[] = [];
+      for (let i = 0; i < rotating.length; i++) {
+        rotated.push(rotating[(i + round) % rotating.length]);
+      }
+      const teamsForRound = [roundTeams[0], ...rotated];
 
-    fixtures.push({
-      id: `fixture_md_${md}_${Date.now()}_${getRandomInt(100, 999)}`,
-      date: dateString,
-      matchday: md,
-      competitionName: `${country.name} 育成Uリーグ (第${md}節)`,
-      competitionType: 'league',
-      homeTeam: isPlayerHome ? teamName : opponent,
-      awayTeam: isPlayerHome ? opponent : teamName,
-      isPlayerHome,
-      played: false
-    });
+      for (let m = 0; m < numTeams / 2; m++) {
+        let home = teamsForRound[m];
+        let away = teamsForRound[numTeams - 1 - m];
+
+        // Alternate home/away in second round-robin cycle
+        if (cycle === 1 || (round + m) % 2 === 1) {
+          const tmp = home;
+          home = away;
+          away = tmp;
+        }
+
+        const isPlayerTeamMatch = home === teamName || away === teamName;
+        const isPlayerHome = home === teamName;
+
+        fixtures.push({
+          id: `fixture_md_${matchday}_${m}_${Date.now()}_${getRandomInt(100, 999)}`,
+          date: dateString,
+          matchday,
+          competitionName: `${competitionName} (第${matchday}節)`,
+          competitionType: 'league',
+          homeTeam: home,
+          awayTeam: away,
+          isPlayerHome,
+          played: false
+        });
+      }
+    }
   }
 
   const standings: LeagueStanding[] = uniqueTeams.map(name => ({
@@ -391,4 +495,46 @@ export function updateStandingsWithResult(standings: LeagueStanding[], fixture: 
     if (b.gd !== a.gd) return b.gd - a.gd;
     return b.gf - a.gf;
   });
+}
+
+/**
+ * Simulates all other league fixtures scheduled on this matchday, ensuring all 8 teams
+ * play simultaneously and have equal matches played in the standings.
+ */
+export function simulateMatchdayForAllTeams(
+  standings: LeagueStanding[],
+  allFixtures: MatchFixture[],
+  matchday: number,
+  playerFixtureResult: MatchFixture
+): {
+  updatedStandings: LeagueStanding[];
+  updatedFixtures: MatchFixture[];
+} {
+  let updatedStandings = [...standings];
+
+  // 1. Process player match
+  updatedStandings = updateStandingsWithResult(updatedStandings, playerFixtureResult);
+
+  // 2. Process other fixtures of the same matchday
+  const updatedFixtures = allFixtures.map(f => {
+    if (f.id === playerFixtureResult.id) {
+      return playerFixtureResult;
+    }
+    if (f.matchday === matchday && !f.played) {
+      // Simulate CPU vs CPU match
+      const hScore = getRandomInt(0, 3);
+      const aScore = getRandomInt(0, 2);
+      const cpuResult: MatchFixture = {
+        ...f,
+        played: true,
+        homeScore: hScore,
+        awayScore: aScore
+      };
+      updatedStandings = updateStandingsWithResult(updatedStandings, cpuResult);
+      return cpuResult;
+    }
+    return f;
+  });
+
+  return { updatedStandings, updatedFixtures };
 }

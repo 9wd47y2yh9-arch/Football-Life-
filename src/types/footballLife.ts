@@ -25,21 +25,17 @@ export type Playstyle =
   | 'defensive_gk'; // 守備型GK
 
 export type PracticeAbsenceReasonId =
-  | 'illness'
-  | 'injury'
-  | 'school_event'
-  | 'exam'
-  | 'family'
-  | 'hospital'
-  | 'fatigue'
-  | 'coach_consulted'
-  | 'personal'
-  | 'friend_hangout'
-  | 'overslept'
-  | 'played'
-  | 'gaming'
-  | 'slacked'
-  | 'other';
+  | 'fatigue' // 疲労蓄積
+  | 'illness' // 軽い体調不良
+  | 'injury_care' // 怪我・違和感
+  | 'academic' // 学校・学業
+  | 'family' // 家族の事情
+  | 'personal' // 個人的な予定
+  | 'solo_practice' // 自主練習を優先
+  | 'rest_needed' // 休養が必要
+  | 'coach_consulted' // 監督・コーチへの相談後
+  | 'other' // その他
+  | 'unexcused'; // 無断欠席
 
 export interface PracticeAbsenceReason {
   id: PracticeAbsenceReasonId;
@@ -280,6 +276,11 @@ export interface TransferOffer {
   wage: number;
   transferFee: number;
   notes: string;
+  isProContract?: boolean;
+  isFifteenYoOffer?: boolean;
+  proLeagueName?: string;
+  negotiationFeedback?: string;
+  negotiationRound?: number;
   loanTerms?: {
     duration: '6_months' | '1_year' | 'season_end';
     durationDays: number;
@@ -293,7 +294,6 @@ export interface TransferOffer {
   };
   playerConsultedCoach?: boolean;
   coachAdvice?: string;
-  negotiationRound?: number;
 }
 
 export interface TimelineEntry {
@@ -308,14 +308,61 @@ export interface TimelineEntry {
 export type FreeTimeActivity = 
   | 'individual_practice'
   | 'solo_practice'
+  | 'physical_workout'
+  | 'shooting_practice'
+  | 'tactics_study'
+  | 'condition_tuning'
+  | 'rehab_session'
+  | 'coach_consult'
   | 'study'
   | 'videogame'
   | 'game_relax'
   | 'hangout_friend'
   | 'sleep'
   | 'rest'
-  | 'tactics_study'
   | 'sns_post';
+
+export interface FaceToFaceOption {
+  text: string;
+  response: string;
+  trustDelta?: number;
+  attitudeDelta?: number;
+  fatigueDelta?: number;
+  positionChange?: Position;
+  transferAction?: 'loan_requested' | 'stay';
+}
+
+export interface FaceToFaceEvent {
+  id: string;
+  speakerName: string;
+  speakerRole: 'coach' | 'assistant_coach' | 'trainer' | 'scout';
+  speakerTitle: string;
+  situation: string;
+  dialogueText: string;
+  options: FaceToFaceOption[];
+}
+
+export interface OffSeasonData {
+  seasonNumber: number;
+  teamName?: string;
+  finalPosition: number;
+  totalTeams?: number;
+  points?: number;
+  won?: number;
+  drawn?: number;
+  lost?: number;
+  teamPoints?: number;
+  teamWon?: number;
+  teamDrawn?: number;
+  teamLost?: number;
+  isChampion: boolean;
+  playerMatchesPlayed: number;
+  playerGoals: number;
+  playerAssists: number;
+  averageRating?: number;
+  newAge?: number;
+  nextCompetition?: string;
+}
 
 export interface RecentGameContext {
   lastMatchResult?: {
@@ -433,5 +480,11 @@ export interface GameState {
       payload?: any;
     }>;
   }>;
+  activeFaceToFace?: FaceToFaceEvent | null;
+  activeOffSeason?: OffSeasonData | null;
   isRetired: boolean;
 }
+
+export type Player = GameState['player'];
+export type PlayerProfile = Player;
+

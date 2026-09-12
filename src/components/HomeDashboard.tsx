@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { GameState, FreeTimeActivity, StatExp, PracticeAbsenceReasonId } from '../types/footballLife';
 import { executeFreeTimeActivity } from '../services/freeTimeEngine';
-import { processDailyTeamPractice, performRehabilitation } from '../services/trainingEngine';
+import { processDailyTeamPractice, performRehabilitation, applyStatGainsAndRecalculateOvr } from '../services/trainingEngine';
 import { PRACTICE_ABSENCE_REASONS } from '../data/worldData';
+import { getDaysBetweenDates, formatDateJapanese } from '../services/gameEngine';
 import { 
   Calendar, Dumbbell, BookOpen, Gamepad2, Users, Moon, Coffee, 
   Shield, AlertTriangle, Trophy, ArrowRight, HeartPulse, Check, Sparkles, X, Clock, HelpCircle,
-  CheckCircle, Heart
+  CheckCircle, Heart, FastForward, MessageSquare
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -14,19 +15,24 @@ interface HomeDashboardProps {
   onUpdateGameState: (updater: (prev: GameState) => GameState) => void;
   onOpenMatchModal: () => void;
   onOpenSmartphone: () => void;
+  onAutoAdvance?: () => void;
+  isAutoAdvancing?: boolean;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   gameState,
   onUpdateGameState,
   onOpenMatchModal,
-  onOpenSmartphone
+  onOpenSmartphone,
+  onAutoAdvance,
+  isAutoAdvancing = false
 }) => {
   const { player, currentDate, freeTimeUsedToday, leagueFixtures, currentMatchday } = gameState;
   const currentTeam = player.currentTeam;
 
-  // Check if today is a scheduled team practice day
-  const todayDayOfWeek = new Date(currentDate).getDay(); // 0: Sun, 1: Mon...
+  // Check if today is a scheduled team practice day using UTC day of week
+  const [currY, currM, currD] = currentDate.split('-').map(Number);
+  const todayDayOfWeek = new Date(Date.UTC(currY, currM - 1, currD)).getUTCDay(); // 0: Sun, 1: Mon...
   const isPracticeDay = currentTeam.practiceSchedule.includes(todayDayOfWeek);
 
   // Check if today is a matchday
@@ -36,15 +42,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   // Next upcoming match fixture
   const nextFixture = leagueFixtures.find(f => !f.played);
   
-  // Calculate days until next match
-  const getDaysUntilNextMatch = () => {
-    if (!nextFixture) return null;
-    const current = new Date(currentDate).getTime();
-    const next = new Date(nextFixture.date).getTime();
-    const diff = Math.ceil((next - current) / (1000 * 60 * 60 * 24));
-    return Math.max(0, diff);
-  };
-  const daysUntilNextMatch = getDaysUntilNextMatch();
+  // Calculate days until next match safely using pure calendar difference
+  const daysUntilNextMatch = nextFixture ? getDaysBetweenDates(currentDate, nextFixture.date) : null;
 
   // Free Time State
   const [selectedFreeTime, setSelectedFreeTime] = useState<FreeTimeActivity | null>(null);
@@ -167,18 +166,25 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           updatedPlayer.coachTrust = Math.min(100, Math.max(0, updatedPlayer.coachTrust + result.coachTrustDelta));
         }
 
-        // Apply stat exp
+        // Apply stat exp and recalculate OVR
         if (result.statExpGained) {
-          for (const [key, val] of Object.entries(result.statExpGained)) {
-            const k = key as keyof StatExp;
-            const currentVal = updatedPlayer.statExp[k] || 0;
-            const newVal = currentVal + (val || 0);
-            if (newVal >= 100) {
-              updatedPlayer.statExp[k] = newVal - 100;
-              updatedPlayer.stats[k] = (updatedPlayer.stats[k] || 30) + 1;
-            } else {
-              updatedPlayer.statExp[k] = newVal;
-            }
+          const growth = applyStatGainsAndRecalculateOvr(
+            updatedPlayer,
+            result.statExpGained
+          );
+          updatedPlayer = growth.updatedPlayer;
+        }
+
+        // Handle injury rehab reduction
+        if (result.rehabDaysReduced && updatedPlayer.injury) {
+          const rem = updatedPlayer.injury.daysRemaining - result.rehabDaysReduced;
+          if (rem <= 0) {
+            updatedPlayer.injury = null;
+          } else {
+            updatedPlayer.injury = {
+              ...updatedPlayer.injury,
+              daysRemaining: rem
+            };
           }
         }
 
@@ -202,6 +208,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           player: updatedPlayer,
           contacts: updatedContacts,
           freeTimeUsedToday: true,
+          activeFaceToFace: result.faceToFaceTriggered || prev.activeFaceToFace,
           dailyLogs: [
             {
               date: prev.currentDate,
@@ -261,32 +268,28 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       title: '正当な理由（監督信頼の低下は最小限またはなし）',
       items: [
         'illness',
-        'injury_recovery',
-        'school_event',
-        'exam',
+        'injury_care',
+        'academic',
         'family',
-        'hospital',
         'fatigue',
+        'rest_needed',
         'coach_consulted'
       ] as PracticeAbsenceReasonId[]
     },
     {
       category: 'doubtful',
-      title: '私用・私情（若干のマイナス評価）',
+      title: '私用・自主性（若干のマイナス評価）',
       items: [
         'personal',
-        'friend_hangout',
+        'solo_practice',
         'other'
       ] as PracticeAbsenceReasonId[]
     },
     {
       category: 'unexcused',
-      title: '不当・自己管理不足（監督信頼が大きく低下）',
+      title: '不当・無断欠席（監督信頼が大きく低下）',
       items: [
-        'overslept',
-        'played',
-        'gaming',
-        'slacked'
+        'unexcused'
       ] as PracticeAbsenceReasonId[]
     }
   ];
@@ -449,9 +452,34 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     <span>試合日まであと <strong className="text-white">{daysUntilNextMatch}</strong> 日</span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  ※通常日は練習や自由行動で能力や体調を整えます。日程を進めて試合日に到達すると自動的にマッチデイへ移行します。
-                </p>
+
+                {daysUntilNextMatch > 5 ? (
+                  <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2.5">
+                    <div className="text-slate-300 text-xs flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>次節まであと <strong className="text-white">{daysUntilNextMatch}</strong> 日</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">（5日前まで自動進行可）</span>
+                    </div>
+                    {onAutoAdvance && (
+                      <button
+                        id="home_auto_btn"
+                        onClick={onAutoAdvance}
+                        disabled={isAutoAdvancing}
+                        className="w-full py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-amber-950/40 cursor-pointer active:scale-95"
+                      >
+                        <FastForward className={`w-3.5 h-3.5 ${isAutoAdvancing ? 'animate-spin' : ''}`} />
+                        <span>{isAutoAdvancing ? '自動進行中...' : '自動'}</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>【直前5日間調整期間】スタメン獲得へ向け、体調管理や個別特訓・面談を行えます。（あと {daysUntilNextMatch} 日）「次の日へ」で1日ずつ進めてください。</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-xs text-slate-400 mb-4">今シーズンの公式リーグ戦は全日程終了しました。</div>
@@ -515,14 +543,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {[
-              { id: 'solo_practice', name: '自主練（能力強化）', desc: '集中特訓で特定能力EXP獲得', icon: Dumbbell, color: 'text-emerald-400 border-emerald-800/60 bg-emerald-950/20' },
+              { id: 'solo_practice', name: '自主練（技術強化）', desc: 'シュート・パス・ドリブル特訓', icon: Dumbbell, color: 'text-emerald-400 border-emerald-800/60 bg-emerald-950/20' },
+              { id: 'physical_workout', name: 'フィジカルトレーニング', desc: '体幹・筋力・スピード強化', icon: Dumbbell, color: 'text-amber-400 border-amber-800/60 bg-amber-950/20' },
+              { id: 'coach_consult', name: '監督・コーチ相談（対面面談）', desc: '直接面談でスタメン直訴・信頼UP', icon: MessageSquare, color: 'text-emerald-400 border-emerald-800/60 bg-emerald-950/20' },
+              { id: 'rest', name: 'コンディション調整・休養', desc: '疲労回復・体調改善', icon: Heart, color: 'text-rose-400 border-rose-800/60 bg-rose-950/20' },
+              { id: 'tactics_study', name: '試合・戦術研究', desc: '戦術眼EXP・監督信頼微増', icon: Shield, color: 'text-cyan-400 border-cyan-800/60 bg-cyan-950/20' },
               { id: 'study', name: '学校の勉強（学力UP）', desc: '成績向上・学業との両立', icon: BookOpen, color: 'text-blue-400 border-blue-800/60 bg-blue-950/20' },
               { id: 'hangout_friend', name: '友達と遊ぶ', desc: '親密度UP・息抜き', icon: Users, color: 'text-purple-400 border-purple-800/60 bg-purple-950/20' },
-              { id: 'sleep', name: '早く寝る（睡眠調整）', desc: '疲労回復・コンディション改善', icon: Moon, color: 'text-indigo-400 border-indigo-800/60 bg-indigo-950/20' },
-              { id: 'game_relax', name: 'ゲーム・趣味で息抜き', desc: 'リフレッシュ・疲労小回復', icon: Gamepad2, color: 'text-amber-400 border-amber-800/60 bg-amber-950/20' },
-              { id: 'rest', name: '休む（ストレッチ）', desc: '軽いストレッチ・疲労回復', icon: Heart, color: 'text-rose-400 border-rose-800/60 bg-rose-950/20' },
-              { id: 'tactics_study', name: '試合・戦術研究', desc: '戦術眼EXP・監督信頼微増', icon: Shield, color: 'text-cyan-400 border-cyan-800/60 bg-cyan-950/20' },
-              { id: 'sns_post', name: 'スマホを見る（SNS・会話）', desc: 'フォロワーや仲間と連絡', icon: Coffee, color: 'text-pink-400 border-pink-800/60 bg-pink-950/20' }
+              { id: 'sleep', name: '早く寝る（睡眠調整）', desc: '疲労回復・コンディション改善', icon: Moon, color: 'text-indigo-400 border-indigo-800/60 bg-indigo-950/20' }
             ].map((act) => {
               const Icon = act.icon;
               const isSelected = selectedFreeTime === act.id;

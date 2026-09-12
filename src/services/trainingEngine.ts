@@ -1,5 +1,6 @@
-import { GameState, Injury, InjurySeverity, Condition, StatExp, PlayerStats, PracticeAbsenceReasonId } from '../types/footballLife';
+import { GameState, Injury, InjurySeverity, Condition, StatExp, PlayerStats, PracticeAbsenceReasonId, Player } from '../types/footballLife';
 import { getRandomElement, getRandomInt, PRACTICE_ABSENCE_REASONS, PLAYSTYLES } from '../data/worldData';
+import { calculatePlayerOVR } from './matchEngine';
 
 export interface DailyTrainingResult {
   attended: boolean;
@@ -11,6 +12,56 @@ export interface DailyTrainingResult {
   injuryOccurred?: Injury;
   logText: string;
   coachComment?: string;
+}
+
+/**
+ * Applies EXP gains, triggers stat level-ups when EXP >= 100, and recalculates OVR
+ */
+export function applyStatGainsAndRecalculateOvr(
+  player: Player,
+  expGained: Partial<StatExp>
+): {
+  updatedPlayer: Player;
+  upgradedStats: string[];
+  ovrChanged: boolean;
+} {
+  const updatedPlayer: Player = {
+    ...player,
+    stats: { ...player.stats },
+    statExp: { ...player.statExp }
+  };
+
+  const upgradedStats: string[] = [];
+  const statKeys = Object.keys(expGained) as Array<keyof StatExp>;
+
+  for (const stat of statKeys) {
+    const gain = expGained[stat] || 0;
+    if (gain <= 0) continue;
+
+    const currentExp = updatedPlayer.statExp[stat] || 0;
+    const currentVal = updatedPlayer.stats[stat] || 30;
+
+    const totalExp = currentExp + gain;
+    if (totalExp >= 100) {
+      const levelsGained = Math.floor(totalExp / 100);
+      updatedPlayer.statExp[stat] = totalExp % 100;
+      updatedPlayer.stats[stat] = Math.min(99, currentVal + levelsGained);
+      upgradedStats.push(stat);
+    } else {
+      updatedPlayer.statExp[stat] = totalExp;
+    }
+  }
+
+  // Recalculate OVR whenever stats or level-ups happen
+  const prevOvr = updatedPlayer.ovr;
+  const newOvr = calculatePlayerOVR(updatedPlayer.stats, updatedPlayer.currentPosition);
+  updatedPlayer.ovr = newOvr;
+
+  return {
+    updatedPlayer,
+    upgradedStats,
+    ovrChanged: newOvr !== prevOvr
+  };
 }
 
 export function processDailyTeamPractice(

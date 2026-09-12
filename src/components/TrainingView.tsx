@@ -12,16 +12,16 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ gameState, onUpdateG
   const { player } = gameState;
   const currentTeam = player.currentTeam;
 
-  const statLabels: Array<{ key: keyof StatExp; label: string; desc: string }> = [
-    { key: 'shooting', label: 'シュート', desc: '決定力、ミドルシュート' },
-    { key: 'passing', label: 'パス', desc: 'ショートパス、ロングキック精度' },
-    { key: 'dribbling', label: 'ドリブル', desc: 'キープ力、狭いエリアでの打開' },
-    { key: 'pace', label: 'スピード', desc: '最高速度、アジリティ' },
-    { key: 'defending', label: '守備', desc: 'タックル、パスカット、対人' },
-    { key: 'physical', label: 'フィジカル', desc: '体幹、競り合いの強さ' },
-    { key: 'tacticalSense', label: '戦術眼', desc: 'ポジショニング、状況判断' },
-    { key: 'stamina', label: 'スタミナ', desc: '試合終了までの運動量' },
-    { key: 'mental', label: 'メンタル', desc: '勝負強さ、プレッシャー耐性' }
+  const statLabels: Array<{ key: keyof StatExp; label: string; desc: string; category: 'physical' | 'technical' | 'tactical' | 'mental' }> = [
+    { key: 'physical', label: 'フィジカル（体幹・筋力）', desc: '体幹の強さ、空中戦、競り合い・キープ力', category: 'physical' },
+    { key: 'pace', label: 'スピード（瞬発力・加速）', desc: '最高速、初速アジリティ、裏抜け', category: 'physical' },
+    { key: 'stamina', label: 'スタミナ（持久力）', desc: '90分間の運動量、連戦耐性', category: 'physical' },
+    { key: 'shooting', label: 'シュート（決定力）', desc: '枠内シュート、ミドルシュート、決定力', category: 'technical' },
+    { key: 'passing', label: 'パス（配球力）', desc: 'ショートパス、展開ロングフィード、クロス', category: 'technical' },
+    { key: 'dribbling', label: 'ドリブル（打開力）', desc: '足元コントロール、狭い局面の打開', category: 'technical' },
+    { key: 'defending', label: '守備（ボール奪取）', desc: 'インターセプト、タックル、対人守備', category: 'tactical' },
+    { key: 'tacticalSense', label: '戦術眼（ポジショニング）', desc: '状況判断、マーク、スペース認知', category: 'tactical' },
+    { key: 'mental', label: 'メンタル（勝負強さ）', desc: 'プレッシャー耐性、終盤の集中力', category: 'mental' }
   ];
 
   const handleRehab = () => {
@@ -141,34 +141,51 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ gameState, onUpdateG
               能力値・長期成長ゲージ（Stat Experience）
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              ※通常練習や自主練で経験値を蓄積。ゲージが100%に達すると能力値が+1向上します。
+              ※練習や自由行動（フィジカルトレーニング・自主練）で各項目EXPが蓄積。100%で能力値+1。
             </p>
           </div>
           <div className="text-right">
-            <span className="text-xs text-slate-400">総合能力</span>
-            <div className="text-lg font-black text-emerald-400 leading-none">OVR {player.ovr}</div>
+            <div className="text-[10px] text-emerald-400 font-semibold">{player.currentPosition}適性加重評価</div>
+            <div className="text-xl font-black text-white leading-none">OVR {player.ovr}</div>
           </div>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {statLabels.map(({ key, label, desc }) => {
+          {statLabels.map(({ key, label, desc, category }) => {
             const statValue = player.stats[key] || 50;
             const expValue = player.statExp[key] || 0;
 
+            const categoryBadges = {
+              physical: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+              technical: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+              tactical: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+              mental: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+            };
+
+            const categoryNames = {
+              physical: 'フィジカル',
+              technical: '技術',
+              tactical: '戦術',
+              mental: 'メンタル'
+            };
+
             return (
-              <div key={key} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5">
+              <div key={key} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${categoryBadges[category]}`}>
+                      {categoryNames[category]}
+                    </span>
                     <span className="font-bold text-slate-200">{label}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">{desc}</span>
                   </div>
                   <span className="font-black text-sm text-emerald-400">{statValue}</span>
                 </div>
+                <p className="text-[10px] text-slate-500">{desc}</p>
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>次の成長まで</span>
+                    <span>次の能力UPまで</span>
                     <span className="font-semibold text-slate-300">{expValue} / 100%</span>
                   </div>
                   <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
