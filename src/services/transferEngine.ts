@@ -1,5 +1,5 @@
-import { GameState, TransferOffer, TransferType, Team, Position, LoanTerms } from '../types/footballLife';
-import { COUNTRIES, REAL_PRO_CLUBS, RealProClub, getRandomElement, getRandomInt } from '../data/worldData';
+import { GameState, TransferOffer, TransferType, Team, Position, LoanTerms, MatchFixture, LeagueStanding } from '../types/footballLife';
+import { COUNTRIES, REAL_PRO_CLUBS, RealProClub, getRandomElement, getRandomInt, findRealProClubByName } from '../data/worldData';
 import { generateInitialCharacters } from './characterEngine';
 import { generateLeagueSeason } from './matchEngine';
 
@@ -426,6 +426,243 @@ export function requestPlayerLoanOffer(
   return { success: true, coachResponse, newOffer };
 }
 
+// Synchronize League Schedule and Standings upon Transfer or Loan Return
+export function syncTransferLeagueSchedule(
+  existingFixtures: MatchFixture[],
+  existingStandings: LeagueStanding[],
+  newTeamName: string,
+  countryId: string,
+  currentDate: string,
+  age: number,
+  currentMatchday = 1,
+  division: 1 | 2 = 1,
+  isPro = false
+): {
+  syncedFixtures: MatchFixture[];
+  syncedStandings: LeagueStanding[];
+  syncedMatchday: number;
+} {
+  const currentYear = new Date(currentDate).getFullYear();
+  const baselineMatchday = Math.max(1, Math.min(14, currentMatchday || 1));
+  const [currY, currM, currD] = currentDate.split('-').map(Number);
+  const currentUtcTime = Date.UTC(currY, currM - 1, currD);
+
+  // 1. Check if newTeam is already in the existing league standings
+  const teamInExistingLeague = (existingStandings || []).some(s => s.teamName === newTeamName);
+
+  if (teamInExistingLeague && existingFixtures && existingFixtures.length > 0) {
+    // Retain existing fixtures and switch player's perspective to new team
+    const updatedFixtures = existingFixtures.map(f => {
+      const isHome = f.homeTeam === newTeamName;
+      const isAway = f.awayTeam === newTeamName;
+      const isNewTeamMatch = isHome || isAway;
+
+      // If this was an unplayed past match prior to transfer date, simulate its completion
+      let wasPlayed = f.played;
+      let hScore = f.homeScore ?? 0;
+      let aScore = f.awayScore ?? 0;
+
+      if (!wasPlayed && f.date < currentDate) {
+        wasPlayed = true;
+        hScore = getRandomInt(0, 3);
+        aScore = getRandomInt(0, 2);
+      }
+
+      return {
+        ...f,
+        played: wasPlayed,
+        homeScore: hScore,
+        awayScore: aScore,
+        isPlayerHome: isHome,
+        // Player did not participate in matches prior to transfer
+        playerPlayed: wasPlayed ? false : undefined,
+        playerGoals: wasPlayed ? 0 : undefined,
+        playerAssists: wasPlayed ? 0 : undefined,
+        playerRating: undefined
+      };
+    });
+
+    // Recalculate standings accurately from all played matches
+    const syncedStandings: LeagueStanding[] = existingStandings.map(s => ({
+      ...s,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      gf: 0,
+      ga: 0,
+      gd: 0,
+      points: 0
+    }));
+
+    updatedFixtures.filter(f => f.played).forEach(f => {
+      const homeStanding = syncedStandings.find(s => s.teamName === f.homeTeam);
+      const awayStanding = syncedStandings.find(s => s.teamName === f.awayTeam);
+      const hGoals = f.homeScore ?? 0;
+      const aGoals = f.awayScore ?? 0;
+
+      if (homeStanding && awayStanding) {
+        homeStanding.played += 1;
+        homeStanding.gf += hGoals;
+        homeStanding.ga += aGoals;
+        homeStanding.gd += (hGoals - aGoals);
+
+        awayStanding.played += 1;
+        awayStanding.gf += aGoals;
+        awayStanding.ga += hGoals;
+        awayStanding.gd += (aGoals - hGoals);
+
+        if (hGoals > aGoals) {
+          homeStanding.won += 1;
+          homeStanding.points += 3;
+          awayStanding.lost += 1;
+        } else if (hGoals < aGoals) {
+          awayStanding.won += 1;
+          awayStanding.points += 3;
+          homeStanding.lost += 1;
+        } else {
+          homeStanding.drawn += 1;
+          homeStanding.points += 1;
+          awayStanding.drawn += 1;
+          awayStanding.points += 1;
+        }
+      }
+    });
+
+    syncedStandings.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      return b.gf - a.gf;
+    });
+
+    // Find new team's next upcoming unplayed match on or after currentDate
+    const nextUnplayedForNewTeam = updatedFixtures.find(
+      f => !f.played && (f.homeTeam === newTeamName || f.awayTeam === newTeamName)
+    );
+
+    const syncedMatchday = nextUnplayedForNewTeam ? nextUnplayedForNewTeam.matchday : baselineMatchday;
+
+    return {
+      syncedFixtures: updatedFixtures,
+      syncedStandings,
+      syncedMatchday
+    };
+  }
+
+  // 2. Transferred to a different league / country / tier:
+  // Generate a full league season for the new club, strictly synchronizing progress with currentMatchday!
+  const { fixtures: rawFixtures, standings: rawStandings } = generateLeagueSeason(
+    newTeamName,
+    countryId,
+    currentYear,
+    age,
+    division,
+    isPro
+  );
+
+  const totalRounds = 14;
+  const roundsToMarkPlayed = Math.min(totalRounds - 1, baselineMatchday - 1);
+
+  const syncedStandings = rawStandings.map(s => ({
+    ...s,
+    played: 0,
+    won: 0,
+    drawn: 0,
+    lost: 0,
+    gf: 0,
+    ga: 0,
+    gd: 0,
+    points: 0
+  }));
+
+  const syncedFixtures: MatchFixture[] = rawFixtures.map(f => {
+    const isRoundPlayed = f.matchday <= roundsToMarkPlayed;
+    let fixtureDateStr = f.date;
+
+    if (isRoundPlayed) {
+      // Past dates: 7 days intervals before currentDate
+      const daysAgo = (roundsToMarkPlayed - f.matchday + 1) * 7;
+      const pastTime = currentUtcTime - daysAgo * 86400000;
+      fixtureDateStr = new Date(pastTime).toISOString().split('T')[0];
+    } else {
+      // Upcoming match starts 6 days after currentDate (allowing 5-day auto advance to cleanly stop 5 days before!)
+      const daysAhead = 6 + (f.matchday - (roundsToMarkPlayed + 1)) * 7;
+      const futureTime = currentUtcTime + daysAhead * 86400000;
+      fixtureDateStr = new Date(futureTime).toISOString().split('T')[0];
+    }
+
+    if (isRoundPlayed) {
+      const hGoals = getRandomInt(0, 3);
+      const aGoals = getRandomInt(0, 2);
+
+      const homeStanding = syncedStandings.find(s => s.teamName === f.homeTeam);
+      const awayStanding = syncedStandings.find(s => s.teamName === f.awayTeam);
+      if (homeStanding && awayStanding) {
+        homeStanding.played += 1;
+        homeStanding.gf += hGoals;
+        homeStanding.ga += aGoals;
+        homeStanding.gd += (hGoals - aGoals);
+
+        awayStanding.played += 1;
+        awayStanding.gf += aGoals;
+        awayStanding.ga += hGoals;
+        awayStanding.gd += (aGoals - hGoals);
+
+        if (hGoals > aGoals) {
+          homeStanding.won += 1;
+          homeStanding.points += 3;
+          awayStanding.lost += 1;
+        } else if (hGoals < aGoals) {
+          awayStanding.won += 1;
+          awayStanding.points += 3;
+          homeStanding.lost += 1;
+        } else {
+          homeStanding.drawn += 1;
+          homeStanding.points += 1;
+          awayStanding.drawn += 1;
+          awayStanding.points += 1;
+        }
+      }
+
+      return {
+        ...f,
+        date: fixtureDateStr,
+        played: true,
+        homeScore: hGoals,
+        awayScore: aGoals,
+        isPlayerHome: f.homeTeam === newTeamName,
+        playerPlayed: false,
+        playerGoals: 0,
+        playerAssists: 0
+      };
+    } else {
+      return {
+        ...f,
+        date: fixtureDateStr,
+        played: false,
+        isPlayerHome: f.homeTeam === newTeamName
+      };
+    }
+  });
+
+  syncedStandings.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    return b.gf - a.gf;
+  });
+
+  const nextUnplayedForNewTeam = syncedFixtures.find(
+    f => !f.played && (f.homeTeam === newTeamName || f.awayTeam === newTeamName)
+  );
+  const syncedMatchday = nextUnplayedForNewTeam ? nextUnplayedForNewTeam.matchday : Math.min(totalRounds, roundsToMarkPlayed + 1);
+
+  return {
+    syncedFixtures,
+    syncedStandings,
+    syncedMatchday
+  };
+}
+
 // Complete a Transfer or Loan
 export function completeTransfer(
   gameState: GameState,
@@ -438,7 +675,9 @@ export function completeTransfer(
   const countryId = countryEntry ? countryEntry[0] : player.currentCountry;
   const countryData = COUNTRIES[countryId] || COUNTRIES.japan;
 
-  const isPro = offer.isProContract || player.age >= 18 || offer.wage > 0;
+  const proClub = findRealProClubByName(offer.clubName);
+  const targetDivision: 1 | 2 = (offer.division as (1 | 2)) || proClub?.division || 1;
+  const isPro = offer.isProContract || player.age >= 18 || offer.wage > 0 || Boolean(proClub);
 
   // Generate new team details
   const newTeam: Team = {
@@ -447,6 +686,8 @@ export function completeTransfer(
     country: offer.country,
     category: isPro ? (offer.country !== '日本' ? 'overseas_youth' : 'j_youth') : (offer.country !== '日本' ? 'overseas_youth' : 'club_team'),
     level: offer.level,
+    division: targetDivision,
+    leagueName: proClub?.leagueName || offer.proLeagueName || (targetDivision === 1 ? `${offer.country} 1部リーグ` : `${offer.country} 2部リーグ`),
     practiceDaysPerWeek: getRandomInt(4, 5),
     practiceSchedule: [1, 2, 3, 5, 6],
     tactic: getRandomElement(['possession', 'high_press', 'counter', 'direct']),
@@ -465,12 +706,28 @@ export function completeTransfer(
     newTeam.coachStyle as any
   );
 
-  // Generate fresh league schedule for the new club
-  const currentYear = new Date(gameState.currentDate).getFullYear();
-  const { fixtures, standings } = generateLeagueSeason(newTeam.name, countryId, currentYear);
+  // SYNCHRONIZE LEAGUE SCHEDULE AND STANDINGS:
+  // Never reset to Matchday 1! Keep player's current date and progress in exact sync.
+  const {
+    syncedFixtures,
+    syncedStandings,
+    syncedMatchday
+  } = syncTransferLeagueSchedule(
+    gameState.leagueFixtures || [],
+    gameState.leagueStandings || [],
+    newTeam.name,
+    countryId,
+    gameState.currentDate,
+    player.age,
+    gameState.currentMatchday || 1,
+    targetDivision,
+    isPro
+  );
 
   let updatedPlayer = { ...player };
   let newTimelineEntry;
+
+  const hasStarterPromise = offer.rolePromise.includes('スタメン') || offer.rolePromise.includes('レギュラー');
 
   if (offer.transferType === 'permanent') {
     // Complete permanent transfer
@@ -499,8 +756,14 @@ export function completeTransfer(
       ...updatedPlayer,
       currentTeam: newTeam,
       currentCountry: countryId,
-      coachTrust: 55,
-      teamRole: (offer.rolePromise.includes('スタメン') || offer.rolePromise.includes('レギュラー')) ? 'starter' : 'bench',
+      // High initial coach trust ensuring immediate match eligibility for new signing
+      coachTrust: hasStarterPromise ? 85 : 78,
+      teamRole: hasStarterPromise ? 'starter' : 'bench',
+      fatigue: Math.min(updatedPlayer.fatigue, 20), // Medical clearance and initial rest
+      consecutiveMissedPractices: 0, // Fresh start at new club, no carried over absence penalty
+      totalMissedPractices: 0,
+      todayPracticeStatus: null,
+      rehabDoneToday: false,
       wage: offer.wage > 0 ? offer.wage : player.wage,
       schoolStage: (isPro && player.age >= 18) ? 'pro' : player.schoolStage,
       isLoaned: false,
@@ -546,8 +809,13 @@ export function completeTransfer(
       ...updatedPlayer,
       currentTeam: newTeam,
       currentCountry: countryId,
-      coachTrust: 65, // Loan club coach is eager to play the loaned player
+      coachTrust: 80, // Loan club coach actively plays loaned player as key reinforcement
       teamRole: terms.rolePromise === 'starter' ? 'starter' : 'bench',
+      fatigue: Math.min(updatedPlayer.fatigue, 20),
+      consecutiveMissedPractices: 0,
+      totalMissedPractices: 0,
+      todayPracticeStatus: null,
+      rehabDoneToday: false,
       isLoaned: true,
       loanType: offer.transferType,
       loanTerms: terms
@@ -557,9 +825,9 @@ export function completeTransfer(
   return {
     player: updatedPlayer,
     contacts: newContacts,
-    leagueFixtures: fixtures,
-    leagueStandings: standings,
-    currentMatchday: 1,
+    leagueFixtures: syncedFixtures,
+    leagueStandings: syncedStandings,
+    currentMatchday: syncedMatchday,
     timeline: [newTimelineEntry, ...gameState.timeline],
     transferOffers: gameState.transferOffers.filter(o => o.id !== offer.id)
   };
@@ -593,8 +861,26 @@ export function checkLoanReturn(gameState: GameState): Partial<GameState> | null
     parentClub.coachStyle as any
   );
 
-  const currentYear = new Date(currentDate).getFullYear();
-  const { fixtures, standings } = generateLeagueSeason(parentClub.name, countryId, currentYear);
+  const parentProClub = findRealProClubByName(parentClub.name);
+  const parentDivision: 1 | 2 = parentClub.division || parentProClub?.division || 1;
+  const isParentPro = player.age >= 18 || Boolean(parentProClub);
+
+  // Synchronize Parent Club League Schedule and Standings
+  const {
+    syncedFixtures,
+    syncedStandings,
+    syncedMatchday
+  } = syncTransferLeagueSchedule(
+    gameState.leagueFixtures || [],
+    gameState.leagueStandings || [],
+    parentClub.name,
+    countryId,
+    currentDate,
+    player.age,
+    gameState.currentMatchday || 1,
+    parentDivision,
+    isParentPro
+  );
 
   const newTimelineEntry = {
     id: `tl_return_${Date.now()}`,
@@ -623,9 +909,9 @@ export function checkLoanReturn(gameState: GameState): Partial<GameState> | null
       loanTerms: undefined
     },
     contacts: returnedContacts,
-    leagueFixtures: fixtures,
-    leagueStandings: standings,
-    currentMatchday: 1,
+    leagueFixtures: syncedFixtures,
+    leagueStandings: syncedStandings,
+    currentMatchday: syncedMatchday,
     timeline: [newTimelineEntry, ...gameState.timeline],
     dailyLogs: [newLog, ...gameState.dailyLogs]
   };

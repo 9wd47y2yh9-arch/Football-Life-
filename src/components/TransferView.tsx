@@ -150,7 +150,7 @@ export const TransferView: React.FC<TransferViewProps> = ({ gameState, onUpdateG
           </div>
           <div className="text-sm font-black text-emerald-400 truncate">{player.currentTeam.name}</div>
           <div className="text-[10px] text-slate-500 mt-1">
-            役割: {player.teamRole === 'starter' ? 'レギュラー（先発）' : 'サブ（控え）'} | 指揮官信頼度: {player.coachTrust}%
+            役割: {player.teamRole === 'starter' ? 'レギュラー（先発）' : 'サブ（控え）'} | 指揮官信頼度: {Math.round(player.coachTrust)}%
           </div>
         </div>
       </div>

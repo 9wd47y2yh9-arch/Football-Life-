@@ -15,7 +15,50 @@ export interface DailyTrainingResult {
 }
 
 /**
- * Applies EXP gains, triggers stat level-ups when EXP >= 100, and recalculates OVR
+ * Calculates Growth Multiplier based on Age and Growth Type
+ * (Golden age 15-24 accelerates growth, removes 40 OVR cap, enables scaling to 90+)
+ */
+export function getPlayerGrowthMultiplier(player: Player): number {
+  const age = player.age || 15;
+  const growthType = player.growthType || 'normal';
+
+  let ageFactor = 1.0;
+  if (age >= 10 && age <= 14) {
+    ageFactor = 1.4; // Junior foundation
+  } else if (age >= 15 && age <= 19) {
+    ageFactor = 2.4; // Golden age explosive growth
+  } else if (age >= 20 && age <= 24) {
+    ageFactor = 2.0; // Early career prime expansion
+  } else if (age >= 25 && age <= 28) {
+    ageFactor = 1.5; // Peak mastery
+  } else if (age >= 29 && age <= 33) {
+    ageFactor = 1.1; // Veteran consolidation
+  } else {
+    ageFactor = 0.8; // Late career
+  }
+
+  let typeFactor = 1.0;
+  switch (growthType) {
+    case 'prodigy':
+      typeFactor = 1.8;
+      break;
+    case 'early':
+      typeFactor = age <= 21 ? 1.5 : 0.9;
+      break;
+    case 'late':
+      typeFactor = age >= 20 ? 1.6 : 1.1;
+      break;
+    case 'normal':
+    default:
+      typeFactor = 1.2;
+      break;
+  }
+
+  return ageFactor * typeFactor;
+}
+
+/**
+ * Applies EXP gains, triggers stat level-ups when EXP >= 100, and recalculates OVR up to 99
  */
 export function applyStatGainsAndRecalculateOvr(
   player: Player,
@@ -31,13 +74,16 @@ export function applyStatGainsAndRecalculateOvr(
     statExp: { ...player.statExp }
   };
 
+  const multiplier = getPlayerGrowthMultiplier(player);
   const upgradedStats: string[] = [];
   const statKeys = Object.keys(expGained) as Array<keyof StatExp>;
 
   for (const stat of statKeys) {
-    const gain = expGained[stat] || 0;
-    if (gain <= 0) continue;
+    const rawGain = expGained[stat] || 0;
+    if (rawGain <= 0) continue;
 
+    // Apply age and growth multiplier
+    const gain = Math.max(1, Math.round(rawGain * multiplier));
     const currentExp = updatedPlayer.statExp[stat] || 0;
     const currentVal = updatedPlayer.stats[stat] || 30;
 
@@ -45,6 +91,7 @@ export function applyStatGainsAndRecalculateOvr(
     if (totalExp >= 100) {
       const levelsGained = Math.floor(totalExp / 100);
       updatedPlayer.statExp[stat] = totalExp % 100;
+      // Allow growth up to 99 (no 40 cap!)
       updatedPlayer.stats[stat] = Math.min(99, currentVal + levelsGained);
       upgradedStats.push(stat);
     } else {
@@ -120,19 +167,54 @@ export function processDailyTeamPractice(
       }
     }
 
-    // Stat Exp Gain: with playstyle bonuses
+    // Stat Exp Gain: Position-tailored and comprehensive with playstyle bonuses
+    const pos = player.currentPosition;
     const baseExp: Partial<StatExp> = {
-      tacticalSense: getRandomInt(1, 3),
-      stamina: getRandomInt(1, 3),
-      passing: getRandomInt(1, 2),
-      dribbling: getRandomInt(1, 2)
+      tacticalSense: getRandomInt(6, 12),
+      stamina: getRandomInt(5, 10),
+      mental: getRandomInt(4, 8)
     };
+
+    if (pos === 'CF' || pos === 'ST') {
+      baseExp.shooting = getRandomInt(10, 18);
+      baseExp.pace = getRandomInt(6, 12);
+      baseExp.dribbling = getRandomInt(6, 12);
+      baseExp.physical = getRandomInt(5, 10);
+    } else if (pos === 'WG') {
+      baseExp.pace = getRandomInt(10, 18);
+      baseExp.dribbling = getRandomInt(10, 16);
+      baseExp.passing = getRandomInt(6, 12);
+      baseExp.shooting = getRandomInt(6, 12);
+    } else if (pos === 'OMF') {
+      baseExp.passing = getRandomInt(10, 18);
+      baseExp.dribbling = getRandomInt(8, 14);
+      baseExp.shooting = getRandomInt(6, 12);
+      baseExp.tacticalSense = getRandomInt(8, 15);
+    } else if (pos === 'CMF' || pos === 'DMF') {
+      baseExp.passing = getRandomInt(10, 16);
+      baseExp.defending = getRandomInt(8, 14);
+      baseExp.stamina = getRandomInt(8, 14);
+      baseExp.physical = getRandomInt(6, 12);
+    } else if (pos === 'CB' || pos === 'SB') {
+      baseExp.defending = getRandomInt(12, 18);
+      baseExp.physical = getRandomInt(8, 14);
+      baseExp.pace = getRandomInt(6, 12);
+      baseExp.stamina = getRandomInt(6, 12);
+    } else if (pos === 'GK') {
+      baseExp.defending = getRandomInt(14, 20);
+      baseExp.physical = getRandomInt(8, 14);
+      baseExp.mental = getRandomInt(8, 14);
+    } else {
+      baseExp.passing = getRandomInt(8, 14);
+      baseExp.dribbling = getRandomInt(8, 14);
+      baseExp.shooting = getRandomInt(8, 14);
+    }
 
     // Apply playstyle growth bonuses!
     if (player.playstyle && PLAYSTYLES[player.playstyle]) {
       const pDef = PLAYSTYLES[player.playstyle];
       for (const bonusStat of pDef.growthBonus) {
-        baseExp[bonusStat] = (baseExp[bonusStat] || 0) + getRandomInt(2, 3);
+        baseExp[bonusStat] = (baseExp[bonusStat] || 0) + getRandomInt(6, 12);
       }
     }
 
@@ -200,12 +282,19 @@ export function performRehabilitation(gameState: GameState): {
     return { daysReduced: 0, logText: '現在怪我はしていません。' };
   }
 
-  // Rehabilitation shortens recovery time slightly, but no instant cures
+  if (player.rehabDoneToday) {
+    return {
+      daysReduced: 0,
+      logText: '本日のリハビリはすでに終了しています。これ以上の無理は患部の悪化を招くため、十分な睡眠と休養を取ってください。'
+    };
+  }
+
+  // Rehabilitation shortens recovery time slightly, but no instant cures (1 day max per session)
   const daysReduced = Math.random() < 0.65 ? 1 : 0;
   return {
     daysReduced,
     logText: daysReduced > 0
-      ? `トレーナーの指導のもと慎重にリハビリを行い、患部の回復が順調に進みました！（復帰まで1日短縮）`
+      ? `トレーナーの指導のもと慎重にリハビリを行い、患部の回復が順調に進みました！（全治が1日短縮）`
       : `アイシングとストレッチで患部のケアを行いました。無理のないペースで治癒を目指します。`
   };
 }

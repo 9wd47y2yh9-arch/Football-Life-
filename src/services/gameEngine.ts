@@ -1,8 +1,8 @@
 import { GameState, Position, MatchFixture, OffSeasonData } from '../types/footballLife';
 import { generateDailyCPUSNSPosts } from './snsEngine';
-import { checkForIncomingOffers, generateScoutInterests } from './transferEngine';
+import { checkForIncomingOffers, generateScoutInterests, checkLoanReturn } from './transferEngine';
 import { checkSchoolEvents, handleAgeTransition } from './schoolEngine';
-import { getRandomInt, PLAYSTYLES } from '../data/worldData';
+import { getRandomInt, PLAYSTYLES, findRealProClubByName } from '../data/worldData';
 import { applyStatGainsAndRecalculateOvr } from './trainingEngine';
 import { generateLeagueSeason, calculatePlayerOVR } from './matchEngine';
 
@@ -12,6 +12,31 @@ import { generateLeagueSeason, calculatePlayerOVR } from './matchEngine';
 export function getNextUpcomingMatch(gameState: GameState): MatchFixture | null {
   if (!gameState.leagueFixtures || gameState.leagueFixtures.length === 0) return null;
 
+  const playerTeamName = gameState.player.currentTeam?.name;
+
+  // 1. Prioritize unplayed upcoming fixtures involving the player's team on or after currentDate
+  if (playerTeamName) {
+    const playerUpcoming = gameState.leagueFixtures.filter(
+      f => !f.played && (f.homeTeam === playerTeamName || f.awayTeam === playerTeamName) && f.date >= gameState.currentDate
+    );
+    if (playerUpcoming.length > 0) {
+      playerUpcoming.sort((a, b) => a.date.localeCompare(b.date));
+      return playerUpcoming[0];
+    }
+  }
+
+  // 2. Unplayed fixtures involving player's team (any date)
+  if (playerTeamName) {
+    const playerAnyUnplayed = gameState.leagueFixtures.filter(
+      f => !f.played && (f.homeTeam === playerTeamName || f.awayTeam === playerTeamName)
+    );
+    if (playerAnyUnplayed.length > 0) {
+      playerAnyUnplayed.sort((a, b) => a.date.localeCompare(b.date));
+      return playerAnyUnplayed[0];
+    }
+  }
+
+  // 3. Fallback: general unplayed fixture on or after currentDate
   const unplayedFuture = gameState.leagueFixtures.filter(
     f => !f.played && f.date >= gameState.currentDate
   );
@@ -20,7 +45,7 @@ export function getNextUpcomingMatch(gameState: GameState): MatchFixture | null 
     return unplayedFuture[0];
   }
 
-  // Fallback to any unplayed
+  // 4. Fallback to any unplayed
   const anyUnplayed = gameState.leagueFixtures.filter(f => !f.played);
   if (anyUnplayed.length > 0) {
     anyUnplayed.sort((a, b) => a.date.localeCompare(b.date));
@@ -98,10 +123,51 @@ export function checkAndTriggerOffSeason(gameState: GameState): GameState {
   const playerGoals = playerMatches.reduce((acc, f) => acc + (f.playerGoals || 0), 0);
   const playerAssists = playerMatches.reduce((acc, f) => acc + (f.playerAssists || 0), 0);
 
+  // Promotion / Relegation Check for Professional Leagues
+  const proClub = findRealProClubByName(teamName);
+  const isPro = gameState.player.schoolStage === 'pro' || gameState.player.age >= 18 || Boolean(proClub);
+  const currentDiv: 1 | 2 = gameState.player.currentTeam.division || proClub?.division || 1;
+  const totalTeams = standings.length || 8;
+
+  let promotionStatus: 'promoted' | 'relegated' | 'stayed' = 'stayed';
+  let promotionMessage = '';
+  const promotedTeams: string[] = [];
+  const relegatedTeams: string[] = [];
+
+  if (isPro) {
+    if (currentDiv === 1) {
+      // Division 1: Bottom 2 relegated (7th & 8th in 8-team league)
+      const relThreshold = Math.max(1, totalTeams - 1);
+      if (standings.length >= 8) {
+        relegatedTeams.push(standings[6].teamName, standings[7].teamName);
+      }
+      if (finalPosition >= relThreshold) {
+        promotionStatus = 'relegated';
+        promotionMessage = `【2部降格】リーグ第${finalPosition}位となり、来季は2部リーグ（Division 2）への降格が決定しました。捲土重来、1年での1部復帰を目指します。`;
+      } else {
+        promotionStatus = 'stayed';
+        promotionMessage = `【1部残留】トップカテゴリー（Division 1）の激闘を戦い抜き、1部残留を確定させました！`;
+      }
+    } else {
+      // Division 2: Top 2 promoted (1st & 2nd)
+      if (standings.length >= 2) {
+        promotedTeams.push(standings[0].teamName, standings[1].teamName);
+      }
+      if (finalPosition <= 2) {
+        promotionStatus = 'promoted';
+        promotionMessage = `🎉【1部昇格決定！！】リーグ第${finalPosition}位の栄誉と共に、来季は最高峰のトップカテゴリー（Division 1）への昇格を果たしました！！`;
+      } else {
+        promotionStatus = 'stayed';
+        promotionMessage = `【2部残留】昇格にはあと一歩及ばず。来季こそは1部昇格の切符を勝ち取ります。`;
+      }
+    }
+  }
+
   const offSeasonData: OffSeasonData = {
     seasonNumber: gameState.currentSeason,
+    teamName,
     finalPosition,
-    totalTeams: standings.length || 8,
+    totalTeams,
     isChampion,
     playerMatchesPlayed: playerMatches.length,
     playerGoals,
@@ -109,7 +175,11 @@ export function checkAndTriggerOffSeason(gameState: GameState): GameState {
     teamPoints: standings[playerRankIndex]?.points || 0,
     teamWon: standings[playerRankIndex]?.won || 0,
     teamDrawn: standings[playerRankIndex]?.drawn || 0,
-    teamLost: standings[playerRankIndex]?.lost || 0
+    teamLost: standings[playerRankIndex]?.lost || 0,
+    promotionStatus,
+    promotionMessage,
+    promotedTeams,
+    relegatedTeams
   };
 
   return {
@@ -118,7 +188,7 @@ export function checkAndTriggerOffSeason(gameState: GameState): GameState {
     dailyLogs: [
       {
         date: gameState.currentDate,
-        text: `【シーズン終了】第${gameState.currentSeason}シーズンの全日程が終了！チーム最終順位: 第${finalPosition}位（${isChampion ? 'リーグ優勝達成！！' : 'シーズン閉幕'}）`,
+        text: `【シーズン終了】第${gameState.currentSeason}シーズンの全日程が終了！最終順位: 第${finalPosition}位（${promotionMessage || (isChampion ? 'リーグ優勝達成！！' : 'シーズン閉幕')}）`,
         type: 'match'
       },
       ...gameState.dailyLogs
@@ -143,12 +213,39 @@ export function startNewSeason(gameState: GameState): GameState {
   let updatedPlayer = ageUpdates.player ? { ...gameState.player, ...ageUpdates.player } : { ...gameState.player };
   let updatedTimeline = ageUpdates.timeline ? ageUpdates.timeline : [...gameState.timeline];
 
-  // Refresh fresh 14-matchday league season for all 8 clubs
-  const { fixtures, standings } = generateLeagueSeason(
+  // Apply Promotion or Relegation changes to team
+  const offSeason = gameState.activeOffSeason;
+  let nextDivision: 1 | 2 = updatedPlayer.currentTeam.division || 1;
+  const proClub = findRealProClubByName(updatedPlayer.currentTeam.name);
+  const isPro = updatedPlayer.schoolStage === 'pro' || updatedPlayer.age >= 18 || Boolean(proClub);
+
+  if (offSeason?.promotionStatus === 'promoted') {
+    nextDivision = 1;
+  } else if (offSeason?.promotionStatus === 'relegated') {
+    nextDivision = 2;
+  } else if (proClub) {
+    nextDivision = updatedPlayer.currentTeam.division || proClub.division;
+  }
+
+  // Update Team Division & League Name
+  const leagueName = proClub
+    ? (nextDivision === 1 ? (proClub.leagueName || '1部リーグ') : '2部リーグ')
+    : (nextDivision === 1 ? '1部リーグ' : '2部リーグ');
+
+  updatedPlayer.currentTeam = {
+    ...updatedPlayer.currentTeam,
+    division: nextDivision,
+    leagueName
+  };
+
+  // Refresh fresh 14-matchday league season with proper division
+  const { fixtures, standings, competitionName } = generateLeagueSeason(
     updatedPlayer.currentTeam.name,
     updatedPlayer.currentCountry,
     nextYear,
-    updatedPlayer.age
+    updatedPlayer.age,
+    nextDivision,
+    isPro
   );
 
   // Full physical reset & injury clearance for the new season
@@ -159,12 +256,14 @@ export function startNewSeason(gameState: GameState): GameState {
   updatedPlayer.todayPracticeStatus = null;
   updatedPlayer.todayPracticeReason = undefined;
 
+  const divisionBadge = isPro ? `【${nextDivision === 1 ? '1部 (Div 1)' : '2部 (Div 2)'}】` : '';
+
   updatedTimeline.unshift({
     id: `tl_season_${nextSeason}_${Date.now()}`,
     age: updatedPlayer.age,
     date: nextDateStr,
-    title: `新シーズン（シーズン${nextSeason}）開幕！`,
-    description: `${updatedPlayer.schoolName}・${updatedPlayer.currentTeam.name}での新シーズンが幕を開けた。新たな全14節の戦いに挑む。`,
+    title: `新シーズン（シーズン${nextSeason}）開幕！${divisionBadge}`,
+    description: `${updatedPlayer.schoolName}・${updatedPlayer.currentTeam.name}での新シーズンが幕を開けた。新たな全14節（${competitionName}）の戦いに挑む。`,
     type: 'trophy'
   });
 
@@ -183,7 +282,7 @@ export function startNewSeason(gameState: GameState): GameState {
     dailyLogs: [
       {
         date: nextDateStr,
-        text: `【新シーズン開幕】シーズン${nextSeason}がスタート！心身ともに万全の状態で新たな1年が始まりました。`,
+        text: `【新シーズン開幕】シーズン${nextSeason}がスタート！心身ともに万全の状態で新たな1年（${competitionName}）が始まりました。`,
         type: 'match'
       },
       ...gameState.dailyLogs
@@ -217,11 +316,14 @@ export function advanceToNextDay(gameState: GameState): GameState {
   const concludingIsMatch = gameState.leagueFixtures.some(f => f.date === gameState.currentDate);
   const concludingHadPractice = !concludingIsMatch && player.currentTeam?.practiceSchedule?.includes(concludingDayOfWeek);
 
-  if (concludingHadPractice && !player.injury) {
-    if (!player.todayPracticeStatus) {
-      // Mild decay if left unselected in manual mode, but avoid excessive destruction
-      player.coachTrust = Math.max(0, player.coachTrust - 2);
-    }
+  // ONLY penalize if the player explicitly chose to skip practice on a team practice day without injury
+  if (concludingHadPractice && !player.injury && player.todayPracticeStatus === 'missed') {
+    player.coachTrust = Math.max(0, player.coachTrust - 8);
+    dailyLogs.unshift({
+      date: gameState.currentDate,
+      text: `【監督の叱責】練習日にもかかわらず無断で練習を欠席したため、監督から「姿勢に甘えがある！」と厳しく叱責されました。（信頼度低下）`,
+      type: 'training'
+    });
   }
 
   // 2. Natural overnight slight fatigue recovery
@@ -326,7 +428,8 @@ export function advanceToNextDay(gameState: GameState): GameState {
     player: {
       ...player,
       todayPracticeStatus: null,
-      todayPracticeReason: undefined
+      todayPracticeReason: undefined,
+      rehabDoneToday: false
     },
     contacts,
     recentContext: updatedRecentContext,
@@ -338,6 +441,12 @@ export function advanceToNextDay(gameState: GameState): GameState {
     pendingEvents,
     activeMatch
   };
+
+  // Check if loan return to parent club expired
+  const loanReturnUpdates = checkLoanReturn(nextState);
+  if (loanReturnUpdates) {
+    nextState = { ...nextState, ...loanReturnUpdates };
+  }
 
   // Check if off-season should trigger
   nextState = checkAndTriggerOffSeason(nextState);
@@ -352,9 +461,18 @@ export function advanceSingleAutoStep(state: GameState): GameState {
   let nextState = { ...state };
   const [sY, sM, sD] = nextState.currentDate.split('-').map(Number);
   const dayOfWeek = new Date(Date.UTC(sY, sM - 1, sD)).getUTCDay();
-  const isPracticeDay = nextState.player.currentTeam?.practiceSchedule?.includes(dayOfWeek);
+  const isMatchToday = (nextState.leagueFixtures || []).some(f => f.date === nextState.currentDate);
+  const isPracticeDay = !isMatchToday && nextState.player.currentTeam?.practiceSchedule?.includes(dayOfWeek);
 
-  if (!nextState.player.injury && isPracticeDay) {
+  if (nextState.player.injury) {
+    // Player is injured: automatically rest/rehab without penalty, never penalize or coach-anger
+    nextState.player = {
+      ...nextState.player,
+      todayPracticeStatus: 'attended', // count as attended/authorized rehab
+      rehabDoneToday: true
+    };
+  } else if (isPracticeDay) {
+    // Official practice day: participate properly, maintain trust, realistic growth
     const baseExp = {
       tacticalSense: 2,
       stamina: 2,
@@ -369,10 +487,17 @@ export function advanceSingleAutoStep(state: GameState): GameState {
     }
 
     const { updatedPlayer } = applyStatGainsAndRecalculateOvr(nextState.player, baseExp);
-    updatedPlayer.fatigue = Math.min(35, Math.max(10, updatedPlayer.fatigue + 5));
-    updatedPlayer.coachTrust = Math.min(100, updatedPlayer.coachTrust + 0.5);
+    updatedPlayer.fatigue = Math.min(40, Math.max(10, updatedPlayer.fatigue + 4));
+    updatedPlayer.coachTrust = Math.min(100, updatedPlayer.coachTrust + 0.3);
     updatedPlayer.todayPracticeStatus = 'attended';
     nextState.player = updatedPlayer;
+  } else {
+    // Off-day: gentle rest / light individual conditioning, fatigue recedes
+    nextState.player = {
+      ...nextState.player,
+      fatigue: Math.max(0, nextState.player.fatigue - 8),
+      todayPracticeStatus: null // Off-day has no practice
+    };
   }
 
   return advanceToNextDay(nextState);

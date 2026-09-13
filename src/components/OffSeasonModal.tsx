@@ -91,6 +91,35 @@ export const OffSeasonModal: React.FC<OffSeasonModalProps> = ({
                 <span className="text-lg font-black text-rose-400">{teamLost}</span>
               </div>
             </div>
+
+            {/* Promotion / Relegation Notification */}
+            {offSeasonData.promotionStatus && (
+              <div className={`mt-3 p-3 rounded-xl border flex items-start space-x-3 text-xs ${
+                offSeasonData.promotionStatus === 'promoted'
+                  ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-200'
+                  : offSeasonData.promotionStatus === 'relegated'
+                  ? 'bg-rose-950/50 border-rose-500/50 text-rose-200'
+                  : 'bg-slate-900/80 border-slate-700/60 text-slate-300'
+              }`}>
+                <Shield className={`w-4 h-4 mt-0.5 shrink-0 ${
+                  offSeasonData.promotionStatus === 'promoted'
+                    ? 'text-emerald-400'
+                    : offSeasonData.promotionStatus === 'relegated'
+                    ? 'text-rose-400'
+                    : 'text-slate-400'
+                }`} />
+                <div>
+                  <span className="font-bold block mb-0.5">
+                    {offSeasonData.promotionStatus === 'promoted' && '【昇格】来季は1部リーグへ参戦！'}
+                    {offSeasonData.promotionStatus === 'relegated' && '【降格】来季は2部リーグへ降格'}
+                    {offSeasonData.promotionStatus === 'stayed' && '【残留】現在のカテゴリーを維持'}
+                  </span>
+                  <p className="text-[11px] leading-relaxed opacity-90">
+                    {offSeasonData.promotionMessage}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Player Individual Record */}

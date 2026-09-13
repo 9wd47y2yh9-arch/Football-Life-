@@ -98,6 +98,8 @@ export interface Team {
   country: string;
   category: TeamCategory;
   level: number; // 1 to 5 stars
+  division?: 1 | 2; // 1: 1部 (Top division), 2: 2部 (Second division)
+  leagueName?: string;
   practiceDaysPerWeek: number; // e.g. 3, 4, 5
   practiceSchedule: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
   tactic: 'possession' | 'counter' | 'high_press' | 'direct' | 'balanced';
@@ -203,6 +205,7 @@ export interface MatchMoment {
     successOutcome: string;
     failOutcome: string;
     points: number;
+    outcomeType?: 'goal' | 'assist' | 'chance_created' | 'defensive_stop' | 'turnover' | 'none';
   }>;
 }
 
@@ -278,6 +281,7 @@ export interface TransferOffer {
   notes: string;
   isProContract?: boolean;
   isFifteenYoOffer?: boolean;
+  division?: 1 | 2;
   proLeagueName?: string;
   negotiationFeedback?: string;
   negotiationRound?: number;
@@ -335,7 +339,7 @@ export interface FaceToFaceOption {
 export interface FaceToFaceEvent {
   id: string;
   speakerName: string;
-  speakerRole: 'coach' | 'assistant_coach' | 'trainer' | 'scout';
+  speakerRole: 'coach' | 'assistant_coach' | 'trainer' | 'scout' | 'friend' | 'teammate' | 'family' | 'romance';
   speakerTitle: string;
   situation: string;
   dialogueText: string;
@@ -362,6 +366,10 @@ export interface OffSeasonData {
   averageRating?: number;
   newAge?: number;
   nextCompetition?: string;
+  promotionStatus?: 'promoted' | 'relegated' | 'stayed';
+  promotionMessage?: string;
+  promotedTeams?: string[];
+  relegatedTeams?: string[];
 }
 
 export interface RecentGameContext {
@@ -421,6 +429,8 @@ export interface GameState {
     fatigue: number; // 0 - 100
     condition: Condition;
     injury: Injury | null;
+    growthType?: 'early' | 'normal' | 'late' | 'prodigy';
+    rehabDoneToday?: boolean;
     todayPracticeStatus: 'attended' | 'missed' | null;
     todayPracticeReason?: string;
     totalMissedPractices: number;

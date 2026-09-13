@@ -1,29 +1,33 @@
 import React from 'react';
 import { GameState } from '../types/footballLife';
 import { COUNTRIES } from '../data/worldData';
-import { Shield, Heart, Activity, Users, MessageSquare, AlertTriangle, ArrowRight, Smartphone, Settings, FastForward, Calendar } from 'lucide-react';
+import { Shield, Heart, Activity, Users, MessageSquare, AlertTriangle, ArrowRight, Smartphone, Settings, FastForward, Calendar, Save } from 'lucide-react';
 import { formatDateJapanese } from '../services/gameEngine';
 
 interface HeaderProps {
   gameState: GameState;
   onNextDay: () => void;
   onAutoAdvance: () => void;
+  onManualSave: () => void;
   daysUntilMatch?: number;
   onOpenSmartphone: () => void;
   onOpenSettings: () => void;
   isProcessingNextDay: boolean;
   isAutoAdvancing: boolean;
+  isSaving?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   gameState,
   onNextDay,
   onAutoAdvance,
+  onManualSave,
   daysUntilMatch,
   onOpenSmartphone,
   onOpenSettings,
   isProcessingNextDay,
-  isAutoAdvancing
+  isAutoAdvancing,
+  isSaving
 }) => {
   const { player, currentDate } = gameState;
   const country = COUNTRIES[player.currentCountry] || COUNTRIES.japan;
@@ -102,6 +106,22 @@ export const Header: React.FC<HeaderProps> = ({
                   {unreadMessagesCount}
                 </span>
               )}
+            </button>
+
+            {/* Manual Save Button */}
+            <button
+              id="header_save_btn"
+              onClick={onManualSave}
+              disabled={isSaving}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm ${
+                isSaving
+                  ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700'
+                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 hover:text-white'
+              }`}
+              title="現在の進行状況を手動セーブ（ブラウザに確実に保存）"
+            >
+              <Save className={`w-3.5 h-3.5 ${isSaving ? 'animate-bounce text-emerald-400' : 'text-emerald-400'}`} />
+              <span className="hidden sm:inline">{isSaving ? '保存完了' : 'セーブ'}</span>
             </button>
 
             {/* Settings Button */}
@@ -202,7 +222,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-slate-400 text-[11px]">監督評価</span>
             <div className="flex items-center gap-1">
               <span className={`font-bold ${player.coachTrust >= 70 ? 'text-emerald-400' : player.coachTrust < 40 ? 'text-rose-400' : 'text-slate-200'}`}>
-                {player.coachTrust}
+                {Math.round(player.coachTrust)}
               </span>
               <span className="text-[10px] text-slate-500">/100</span>
             </div>

@@ -28,6 +28,22 @@ export default function App() {
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
   const [isProcessingNextDay, setIsProcessingNextDay] = useState(false);
   const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveToast, setSaveToast] = useState<{ message: string; type: 'success' | 'auto' } | null>(null);
+
+  // Manual Save Handler
+  const handleManualSave = () => {
+    if (!gameState) return;
+    setIsSaving(true);
+    saveGameState(gameState);
+    setSaveToast({ message: 'セーブが完了しました（現在の進行状況を安全に保存しました）', type: 'success' });
+    setTimeout(() => {
+      setIsSaving(false);
+    }, 1200);
+    setTimeout(() => {
+      setSaveToast(null);
+    }, 3000);
+  };
 
   // Ref to hold running auto advance timer
   const autoTimerRef = useRef<any>(null);
@@ -247,12 +263,24 @@ export default function App() {
         gameState={gameState}
         onNextDay={handleNextDay}
         onAutoAdvance={handleAutoAdvance}
+        onManualSave={handleManualSave}
+        isSaving={isSaving}
         daysUntilMatch={daysUntilNextMatch}
         onOpenSmartphone={() => setIsSmartphoneOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         isProcessingNextDay={isProcessingNextDay}
         isAutoAdvancing={isAutoAdvancing}
       />
+
+      {/* Save Toast Notification */}
+      {saveToast && (
+        <div className="fixed bottom-5 right-5 z-50 animate-fade-in flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900/95 border border-emerald-500/60 text-emerald-300 shadow-2xl text-xs font-semibold backdrop-blur-md">
+          <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+            ✓
+          </div>
+          <span>{saveToast.message}</span>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 flex flex-col gap-5">

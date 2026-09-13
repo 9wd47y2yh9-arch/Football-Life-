@@ -21,9 +21,14 @@ export const MatchModal: React.FC<MatchModalProps> = ({
   // Calculate CPU coach lineup decision
   const lineupRole = evaluateLineupRole(gameState);
   
-  // Generate interactive moments based on role
+  // Generate interactive moments based on role and opponent
+  const opponentName = fixture.isPlayerHome ? fixture.awayTeam : fixture.homeTeam;
   const [moments] = useState<MatchMoment[]>(() => 
-    generateMatchMoments(lineupRole === 'starter' ? 'starter' : 'bench', gameState.player.currentPosition)
+    generateMatchMoments(
+      lineupRole === 'starter' ? 'starter' : 'bench',
+      gameState.player.currentPosition,
+      opponentName
+    )
   );
   
   const [currentMomentIndex, setCurrentMomentIndex] = useState(0);
@@ -32,6 +37,7 @@ export const MatchModal: React.FC<MatchModalProps> = ({
     optionIndex: number;
     success: boolean;
     outcomeText: string;
+    outcomeType?: 'goal' | 'assist' | 'chance_created' | 'defensive_stop' | 'turnover' | 'none';
   }>>([]);
   
   const [matchResultData, setMatchResultData] = useState<{
@@ -67,7 +73,8 @@ export const MatchModal: React.FC<MatchModalProps> = ({
       momentId: currentMoment.id,
       optionIndex,
       success: isSuccess,
-      outcomeText: isSuccess ? option.successOutcome : option.failOutcome
+      outcomeText: isSuccess ? option.successOutcome : option.failOutcome,
+      outcomeType: option.outcomeType
     };
 
     const newDecisions = [...momentDecisions, decisionRecord];
@@ -202,7 +209,7 @@ export const MatchModal: React.FC<MatchModalProps> = ({
             <div className="text-center">
               <h3 className="text-sm font-bold text-slate-300">監督CPUによるスタメン選考発表</h3>
               <p className="text-xs text-slate-500 mt-1">
-                能力値、ポジション適性、直近の疲労度（{gameState.player.fatigue}%）、監督信頼度（{gameState.player.coachTrust}）を総合評価
+                能力値、ポジション適性、直近の疲労度（{gameState.player.fatigue}%）、監督信頼度（{Math.round(gameState.player.coachTrust)}）を総合評価
               </p>
             </div>
 

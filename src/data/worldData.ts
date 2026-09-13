@@ -783,60 +783,147 @@ export interface RealProClub {
   reputation: number; // 1-100
   tier: 'world_class' | 'top_flight' | 'challenger';
   leagueName: string;
+  division: 1 | 2;
   minOvr15yo: number;
 }
 
 export const REAL_PRO_CLUBS: RealProClub[] = [
-  // Spain
-  { id: 'barcelona', name: 'FC Barcelona', country: 'スペイン', countryId: 'spain', level: 5, reputation: 95, tier: 'world_class', leagueName: 'La Liga', minOvr15yo: 62 },
-  { id: 'real_madrid', name: 'Real Madrid', country: 'スペイン', countryId: 'spain', level: 5, reputation: 96, tier: 'world_class', leagueName: 'La Liga', minOvr15yo: 63 },
-  { id: 'atletico_madrid', name: 'Atlético Madrid', country: 'スペイン', countryId: 'spain', level: 5, reputation: 88, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 59 },
-  { id: 'real_sociedad', name: 'Real Sociedad', country: 'スペイン', countryId: 'spain', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 56 },
-  { id: 'athletic_club', name: 'Athletic Club', country: 'スペイン', countryId: 'spain', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 56 },
-  { id: 'valencia', name: 'Valencia CF', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 54 },
-  { id: 'sevilla', name: 'Sevilla FC', country: 'スペイン', countryId: 'spain', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 55 },
-  { id: 'real_betis', name: 'Real Betis', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 54 },
-  { id: 'villarreal', name: 'Villarreal CF', country: 'スペイン', countryId: 'spain', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'La Liga', minOvr15yo: 55 },
-  // England
-  { id: 'man_city', name: 'Manchester City', country: 'イングランド', countryId: 'england', level: 5, reputation: 95, tier: 'world_class', leagueName: 'Premier League', minOvr15yo: 63 },
-  { id: 'liverpool', name: 'Liverpool', country: 'イングランド', countryId: 'england', level: 5, reputation: 94, tier: 'world_class', leagueName: 'Premier League', minOvr15yo: 62 },
-  { id: 'arsenal', name: 'Arsenal', country: 'イングランド', countryId: 'england', level: 5, reputation: 92, tier: 'world_class', leagueName: 'Premier League', minOvr15yo: 61 },
-  { id: 'chelsea', name: 'Chelsea', country: 'イングランド', countryId: 'england', level: 5, reputation: 89, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 60 },
-  { id: 'man_united', name: 'Manchester United', country: 'イングランド', countryId: 'england', level: 5, reputation: 91, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 60 },
-  { id: 'tottenham', name: 'Tottenham Hotspur', country: 'イングランド', countryId: 'england', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 58 },
-  { id: 'newcastle', name: 'Newcastle United', country: 'イングランド', countryId: 'england', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 57 },
-  { id: 'aston_villa', name: 'Aston Villa', country: 'イングランド', countryId: 'england', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 56 },
-  { id: 'brighton', name: 'Brighton & Hove Albion', country: 'イングランド', countryId: 'england', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'Premier League', minOvr15yo: 55 },
-  // Germany
-  { id: 'bayern', name: 'Bayern Munich', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 94, tier: 'world_class', leagueName: 'Bundesliga', minOvr15yo: 62 },
-  { id: 'dortmund', name: 'Borussia Dortmund', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 90, tier: 'world_class', leagueName: 'Bundesliga', minOvr15yo: 59 },
-  { id: 'leverkusen', name: 'Bayer Leverkusen', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 88, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 58 },
-  { id: 'leipzig', name: 'RB Leipzig', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 57 },
-  { id: 'frankfurt', name: 'Eintracht Frankfurt', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 55 },
-  { id: 'stuttgart', name: 'VfB Stuttgart', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'Bundesliga', minOvr15yo: 54 },
-  // France
-  { id: 'psg', name: 'Paris Saint-Germain', country: 'フランス', countryId: 'france', level: 5, reputation: 93, tier: 'world_class', leagueName: 'Ligue 1', minOvr15yo: 62 },
-  { id: 'monaco', name: 'AS Monaco', country: 'フランス', countryId: 'france', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'Ligue 1', minOvr15yo: 56 },
-  { id: 'marseille', name: 'Olympique de Marseille', country: 'フランス', countryId: 'france', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'Ligue 1', minOvr15yo: 56 },
-  { id: 'lyon', name: 'Olympique Lyonnais', country: 'フランス', countryId: 'france', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'Ligue 1', minOvr15yo: 55 },
-  // Italy
-  { id: 'inter', name: 'Inter', country: 'イタリア', countryId: 'italy', level: 5, reputation: 92, tier: 'world_class', leagueName: 'Serie A', minOvr15yo: 61 },
-  { id: 'ac_milan', name: 'AC Milan', country: 'イタリア', countryId: 'italy', level: 5, reputation: 91, tier: 'world_class', leagueName: 'Serie A', minOvr15yo: 61 },
-  { id: 'juventus', name: 'Juventus', country: 'イタリア', countryId: 'italy', level: 5, reputation: 91, tier: 'world_class', leagueName: 'Serie A', minOvr15yo: 61 },
-  { id: 'napoli', name: 'Napoli', country: 'イタリア', countryId: 'italy', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'Serie A', minOvr15yo: 58 },
-  { id: 'roma', name: 'AS Roma', country: 'イタリア', countryId: 'italy', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'Serie A', minOvr15yo: 56 },
-  { id: 'atalanta', name: 'Atalanta', country: 'イタリア', countryId: 'italy', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'Serie A', minOvr15yo: 56 },
-  // Japan (J1 League)
-  { id: 'vissel_kobe', name: 'ヴィッセル神戸', country: '日本', countryId: 'japan', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 52 },
-  { id: 'kawasaki_frontale', name: '川崎フロンターレ', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
-  { id: 'yokohama_f_marinos', name: '横浜F・マリノス', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
-  { id: 'urawa_reds', name: '浦和レッズ', country: '日本', countryId: 'japan', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 52 },
-  { id: 'sanfrecce_hiroshima', name: 'サンフレッチェ広島', country: '日本', countryId: 'japan', level: 4, reputation: 76, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
-  { id: 'kashima_antlers', name: '鹿島アントラーズ', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', minOvr15yo: 51 },
-  { id: 'gamba_osaka', name: 'ガンバ大阪', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 49 },
-  { id: 'cerezo_osaka', name: 'セレッソ大阪', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 49 },
-  { id: 'fc_tokyo', name: 'FC東京', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 49 },
-  { id: 'nagoya_grampus', name: '名古屋グランパス', country: '日本', countryId: 'japan', level: 3, reputation: 74, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 50 },
-  { id: 'machida_zelvia', name: '町田ゼルビア', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 48 },
-  { id: 'avispa_fukuoka', name: 'アビスパ福岡', country: '日本', countryId: 'japan', level: 3, reputation: 71, tier: 'challenger', leagueName: 'J1リーグ', minOvr15yo: 48 }
+  // Spain - Division 1 (La Liga)
+  { id: 'barcelona', name: 'FC Barcelona', country: 'スペイン', countryId: 'spain', level: 5, reputation: 95, tier: 'world_class', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 62 },
+  { id: 'real_madrid', name: 'Real Madrid', country: 'スペイン', countryId: 'spain', level: 5, reputation: 96, tier: 'world_class', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 63 },
+  { id: 'atletico_madrid', name: 'Atlético Madrid', country: 'スペイン', countryId: 'spain', level: 5, reputation: 88, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 59 },
+  { id: 'real_sociedad', name: 'Real Sociedad', country: 'スペイン', countryId: 'spain', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 56 },
+  { id: 'athletic_club', name: 'Athletic Club', country: 'スペイン', countryId: 'spain', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 56 },
+  { id: 'valencia', name: 'Valencia CF', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 54 },
+  { id: 'sevilla', name: 'Sevilla FC', country: 'スペイン', countryId: 'spain', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 55 },
+  { id: 'real_betis', name: 'Real Betis', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 54 },
+  { id: 'villarreal', name: 'Villarreal CF', country: 'スペイン', countryId: 'spain', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 55 },
+  { id: 'girona', name: 'Girona FC', country: 'スペイン', countryId: 'spain', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'ラ・リーガ', division: 1, minOvr15yo: 54 },
+  // Spain - Division 2 (Segunda División)
+  { id: 'espanyol', name: 'RCD Espanyol', country: 'スペイン', countryId: 'spain', level: 3, reputation: 74, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 50 },
+  { id: 'valladolid', name: 'Real Valladolid', country: 'スペイン', countryId: 'spain', level: 3, reputation: 73, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 49 },
+  { id: 'leganes', name: 'CD Leganés', country: 'スペイン', countryId: 'spain', level: 3, reputation: 72, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 48 },
+  { id: 'sporting_gijon', name: 'Sporting Gijón', country: 'スペイン', countryId: 'spain', level: 3, reputation: 71, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 48 },
+  { id: 'oviedo', name: 'Real Oviedo', country: 'スペイン', countryId: 'spain', level: 3, reputation: 71, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 48 },
+  { id: 'levante', name: 'Levante UD', country: 'スペイン', countryId: 'spain', level: 3, reputation: 72, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 49 },
+  { id: 'racing_santander', name: 'Racing Santander', country: 'スペイン', countryId: 'spain', level: 3, reputation: 70, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 47 },
+  { id: 'zaragoza', name: 'Real Zaragoza', country: 'スペイン', countryId: 'spain', level: 3, reputation: 71, tier: 'challenger', leagueName: 'セグンダ・ディビシオン', division: 2, minOvr15yo: 48 },
+
+  // England - Division 1 (Premier League)
+  { id: 'man_city', name: 'Manchester City', country: 'イングランド', countryId: 'england', level: 5, reputation: 95, tier: 'world_class', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 63 },
+  { id: 'liverpool', name: 'Liverpool', country: 'イングランド', countryId: 'england', level: 5, reputation: 94, tier: 'world_class', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 62 },
+  { id: 'arsenal', name: 'Arsenal', country: 'イングランド', countryId: 'england', level: 5, reputation: 92, tier: 'world_class', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 61 },
+  { id: 'chelsea', name: 'Chelsea', country: 'イングランド', countryId: 'england', level: 5, reputation: 89, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 60 },
+  { id: 'man_united', name: 'Manchester United', country: 'イングランド', countryId: 'england', level: 5, reputation: 91, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 60 },
+  { id: 'tottenham', name: 'Tottenham Hotspur', country: 'イングランド', countryId: 'england', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 58 },
+  { id: 'newcastle', name: 'Newcastle United', country: 'イングランド', countryId: 'england', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 57 },
+  { id: 'aston_villa', name: 'Aston Villa', country: 'イングランド', countryId: 'england', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 56 },
+  { id: 'brighton', name: 'Brighton & Hove Albion', country: 'イングランド', countryId: 'england', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 55 },
+  { id: 'west_ham', name: 'West Ham United', country: 'イングランド', countryId: 'england', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'プレミアリーグ', division: 1, minOvr15yo: 54 },
+  // England - Division 2 (Championship)
+  { id: 'leicester', name: 'Leicester City', country: 'イングランド', countryId: 'england', level: 3, reputation: 76, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 51 },
+  { id: 'leeds', name: 'Leeds United', country: 'イングランド', countryId: 'england', level: 3, reputation: 75, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 50 },
+  { id: 'southampton', name: 'Southampton', country: 'イングランド', countryId: 'england', level: 3, reputation: 74, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 50 },
+  { id: 'ipswich', name: 'Ipswich Town', country: 'イングランド', countryId: 'england', level: 3, reputation: 72, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 48 },
+  { id: 'norwich', name: 'Norwich City', country: 'イングランド', countryId: 'england', level: 3, reputation: 72, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 48 },
+  { id: 'west_brom', name: 'West Bromwich Albion', country: 'イングランド', countryId: 'england', level: 3, reputation: 71, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 48 },
+  { id: 'middlesbrough', name: 'Middlesbrough', country: 'イングランド', countryId: 'england', level: 3, reputation: 71, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 48 },
+  { id: 'coventry', name: 'Coventry City', country: 'イングランド', countryId: 'england', level: 3, reputation: 70, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 47 },
+  { id: 'watford', name: 'Watford', country: 'イングランド', countryId: 'england', level: 3, reputation: 71, tier: 'challenger', leagueName: 'チャンピオンシップ', division: 2, minOvr15yo: 48 },
+
+  // Germany - Division 1 (Bundesliga)
+  { id: 'bayern', name: 'Bayern Munich', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 94, tier: 'world_class', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 62 },
+  { id: 'dortmund', name: 'Borussia Dortmund', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 90, tier: 'world_class', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 59 },
+  { id: 'leverkusen', name: 'Bayer Leverkusen', country: 'ドイツ', countryId: 'germany', level: 5, reputation: 88, tier: 'top_flight', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 58 },
+  { id: 'leipzig', name: 'RB Leipzig', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 57 },
+  { id: 'frankfurt', name: 'Eintracht Frankfurt', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 55 },
+  { id: 'stuttgart', name: 'VfB Stuttgart', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 54 },
+  { id: 'freiburg', name: 'SC Freiburg', country: 'ドイツ', countryId: 'germany', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 53 },
+  { id: 'hoffenheim', name: 'TSG Hoffenheim', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 76, tier: 'challenger', leagueName: 'ブンデスリーガ', division: 1, minOvr15yo: 51 },
+  // Germany - Division 2 (2. Bundesliga)
+  { id: 'hamburg', name: 'Hamburger SV', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 75, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 50 },
+  { id: 'schalke', name: 'FC Schalke 04', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 74, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 49 },
+  { id: 'hertha', name: 'Hertha BSC', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 73, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 49 },
+  { id: 'hannover', name: 'Hannover 96', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 72, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 48 },
+  { id: 'dusseldorf', name: 'Fortuna Düsseldorf', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 72, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 48 },
+  { id: 'st_pauli', name: 'FC St. Pauli', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 72, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 48 },
+  { id: 'nurnberg', name: '1. FC Nürnberg', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 71, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 48 },
+  { id: 'karlsruhe', name: 'Karlsruher SC', country: 'ドイツ', countryId: 'germany', level: 3, reputation: 70, tier: 'challenger', leagueName: '2. ブンデスリーガ', division: 2, minOvr15yo: 47 },
+
+  // France - Division 1 (Ligue 1)
+  { id: 'psg', name: 'Paris Saint-Germain', country: 'フランス', countryId: 'france', level: 5, reputation: 93, tier: 'world_class', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 62 },
+  { id: 'monaco', name: 'AS Monaco', country: 'フランス', countryId: 'france', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 56 },
+  { id: 'marseille', name: 'Olympique de Marseille', country: 'フランス', countryId: 'france', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 56 },
+  { id: 'lyon', name: 'Olympique Lyonnais', country: 'フランス', countryId: 'france', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 55 },
+  { id: 'lille', name: 'Lille OSC', country: 'フランス', countryId: 'france', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 54 },
+  { id: 'rennes', name: 'Stade Rennais', country: 'フランス', countryId: 'france', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 53 },
+  { id: 'nice', name: 'OGC Nice', country: 'フランス', countryId: 'france', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 53 },
+  { id: 'lens', name: 'RC Lens', country: 'フランス', countryId: 'france', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'リーグ・アン', division: 1, minOvr15yo: 53 },
+  // France - Division 2 (Ligue 2)
+  { id: 'auxerre', name: 'AJ Auxerre', country: 'フランス', countryId: 'france', level: 3, reputation: 73, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 49 },
+  { id: 'angers', name: 'Angers SCO', country: 'フランス', countryId: 'france', level: 3, reputation: 72, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 48 },
+  { id: 'saint_etienne', name: 'AS Saint-Étienne', country: 'フランス', countryId: 'france', level: 3, reputation: 74, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 50 },
+  { id: 'metz', name: 'FC Metz', country: 'フランス', countryId: 'france', level: 3, reputation: 72, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 48 },
+  { id: 'bordeaux', name: 'Girondins de Bordeaux', country: 'フランス', countryId: 'france', level: 3, reputation: 73, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 49 },
+  { id: 'caen', name: 'SM Caen', country: 'フランス', countryId: 'france', level: 3, reputation: 71, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 48 },
+  { id: 'guingamp', name: 'EA Guingamp', country: 'フランス', countryId: 'france', level: 3, reputation: 70, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 47 },
+  { id: 'grenoble', name: 'Grenoble Foot 38', country: 'フランス', countryId: 'france', level: 3, reputation: 70, tier: 'challenger', leagueName: 'リーグ・ドゥ', division: 2, minOvr15yo: 47 },
+
+  // Italy - Division 1 (Serie A)
+  { id: 'inter', name: 'Inter', country: 'イタリア', countryId: 'italy', level: 5, reputation: 92, tier: 'world_class', leagueName: 'セリエA', division: 1, minOvr15yo: 61 },
+  { id: 'ac_milan', name: 'AC Milan', country: 'イタリア', countryId: 'italy', level: 5, reputation: 91, tier: 'world_class', leagueName: 'セリエA', division: 1, minOvr15yo: 61 },
+  { id: 'juventus', name: 'Juventus', country: 'イタリア', countryId: 'italy', level: 5, reputation: 91, tier: 'world_class', leagueName: 'セリエA', division: 1, minOvr15yo: 61 },
+  { id: 'napoli', name: 'Napoli', country: 'イタリア', countryId: 'italy', level: 4, reputation: 85, tier: 'top_flight', leagueName: 'セリエA', division: 1, minOvr15yo: 58 },
+  { id: 'roma', name: 'AS Roma', country: 'イタリア', countryId: 'italy', level: 4, reputation: 83, tier: 'top_flight', leagueName: 'セリエA', division: 1, minOvr15yo: 56 },
+  { id: 'atalanta', name: 'Atalanta', country: 'イタリア', countryId: 'italy', level: 4, reputation: 82, tier: 'top_flight', leagueName: 'セリエA', division: 1, minOvr15yo: 56 },
+  { id: 'lazio', name: 'SS Lazio', country: 'イタリア', countryId: 'italy', level: 4, reputation: 81, tier: 'top_flight', leagueName: 'セリエA', division: 1, minOvr15yo: 55 },
+  { id: 'fiorentina', name: 'ACF Fiorentina', country: 'イタリア', countryId: 'italy', level: 4, reputation: 80, tier: 'top_flight', leagueName: 'セリエA', division: 1, minOvr15yo: 54 },
+  { id: 'bologna', name: 'Bologna FC', country: 'イタリア', countryId: 'italy', level: 4, reputation: 79, tier: 'top_flight', leagueName: 'セリエA', division: 1, minOvr15yo: 53 },
+  { id: 'torino', name: 'Torino FC', country: 'イタリア', countryId: 'italy', level: 3, reputation: 77, tier: 'challenger', leagueName: 'セリエA', division: 1, minOvr15yo: 52 },
+  // Italy - Division 2 (Serie B)
+  { id: 'parma', name: 'Parma Calcio', country: 'イタリア', countryId: 'italy', level: 3, reputation: 74, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 50 },
+  { id: 'como', name: 'Como 1907', country: 'イタリア', countryId: 'italy', level: 3, reputation: 73, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 49 },
+  { id: 'venezia', name: 'Venezia FC', country: 'イタリア', countryId: 'italy', level: 3, reputation: 72, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 48 },
+  { id: 'sampdoria', name: 'UC Sampdoria', country: 'イタリア', countryId: 'italy', level: 3, reputation: 74, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 50 },
+  { id: 'palermo', name: 'Palermo FC', country: 'イタリア', countryId: 'italy', level: 3, reputation: 73, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 49 },
+  { id: 'cremonese', name: 'US Cremonese', country: 'イタリア', countryId: 'italy', level: 3, reputation: 72, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 48 },
+  { id: 'bari', name: 'SSC Bari', country: 'イタリア', countryId: 'italy', level: 3, reputation: 71, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 48 },
+  { id: 'brescia', name: 'Brescia Calcio', country: 'イタリア', countryId: 'italy', level: 3, reputation: 71, tier: 'challenger', leagueName: 'セリエB', division: 2, minOvr15yo: 48 },
+
+  // Japan - Division 1 (J1 League)
+  { id: 'vissel_kobe', name: 'ヴィッセル神戸', country: '日本', countryId: 'japan', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'J1リーグ', division: 1, minOvr15yo: 52 },
+  { id: 'kawasaki_frontale', name: '川崎フロンターレ', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', division: 1, minOvr15yo: 51 },
+  { id: 'yokohama_f_marinos', name: '横浜F・マリノス', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', division: 1, minOvr15yo: 51 },
+  { id: 'urawa_reds', name: '浦和レッズ', country: '日本', countryId: 'japan', level: 4, reputation: 78, tier: 'top_flight', leagueName: 'J1リーグ', division: 1, minOvr15yo: 52 },
+  { id: 'sanfrecce_hiroshima', name: 'サンフレッチェ広島', country: '日本', countryId: 'japan', level: 4, reputation: 76, tier: 'top_flight', leagueName: 'J1リーグ', division: 1, minOvr15yo: 51 },
+  { id: 'kashima_antlers', name: '鹿島アントラーズ', country: '日本', countryId: 'japan', level: 4, reputation: 77, tier: 'top_flight', leagueName: 'J1リーグ', division: 1, minOvr15yo: 51 },
+  { id: 'gamba_osaka', name: 'ガンバ大阪', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', division: 1, minOvr15yo: 49 },
+  { id: 'cerezo_osaka', name: 'セレッソ大阪', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', division: 1, minOvr15yo: 49 },
+  { id: 'fc_tokyo', name: 'FC東京', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J1リーグ', division: 1, minOvr15yo: 49 },
+  { id: 'nagoya_grampus', name: '名古屋グランパス', country: '日本', countryId: 'japan', level: 3, reputation: 74, tier: 'challenger', leagueName: 'J1リーグ', division: 1, minOvr15yo: 50 },
+  { id: 'machida_zelvia', name: '町田ゼルビア', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J1リーグ', division: 1, minOvr15yo: 48 },
+  { id: 'avispa_fukuoka', name: 'アビスパ福岡', country: '日本', countryId: 'japan', level: 3, reputation: 71, tier: 'challenger', leagueName: 'J1リーグ', division: 1, minOvr15yo: 48 },
+  // Japan - Division 2 (J2 League)
+  { id: 'shimizu_spulse', name: '清水エスパルス', country: '日本', countryId: 'japan', level: 3, reputation: 73, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 49 },
+  { id: 'yokohama_fc', name: '横浜FC', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 48 },
+  { id: 'v_varen_nagasaki', name: 'V・ファーレン長崎', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 48 },
+  { id: 'montedio_yamagata', name: 'モンテディオ山形', country: '日本', countryId: 'japan', level: 3, reputation: 71, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 47 },
+  { id: 'jef_chiba', name: 'ジェフユナイテッド千葉', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 48 },
+  { id: 'vegalta_sendai', name: 'ベガルタ仙台', country: '日本', countryId: 'japan', level: 3, reputation: 72, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 48 },
+  { id: 'fagiano_okayama', name: 'ファジアーノ岡山', country: '日本', countryId: 'japan', level: 3, reputation: 70, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 47 },
+  { id: 'oita_trinita', name: '大分トリニータ', country: '日本', countryId: 'japan', level: 3, reputation: 71, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 47 },
+  { id: 'ventforet_kofu', name: 'ヴァンフォーレ甲府', country: '日本', countryId: 'japan', level: 3, reputation: 71, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 47 },
+  { id: 'tokushima_vortis', name: '徳島ヴォルティス', country: '日本', countryId: 'japan', level: 3, reputation: 70, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 46 }
 ];
+
+export function findRealProClubByName(name: string): RealProClub | undefined {
+  return REAL_PRO_CLUBS.find(c => name.includes(c.name) || c.name.includes(name));
+}
+
+export function getProClubsForCountry(countryId: string, division: 1 | 2 = 1): RealProClub[] {
+  const clubs = REAL_PRO_CLUBS.filter(c => c.countryId === countryId && c.division === division);
+  if (clubs.length > 0) return clubs;
+  const anyCountryClubs = REAL_PRO_CLUBS.filter(c => c.countryId === countryId);
+  if (anyCountryClubs.length > 0) return anyCountryClubs;
+  return REAL_PRO_CLUBS.filter(c => c.division === division);
+}

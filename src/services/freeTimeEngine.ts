@@ -127,6 +127,27 @@ export function executeFreeTimeActivity(
       case 'coach_consult': {
         const coach = contacts.find(c => c.role === 'coach') || contacts.find(c => c.role === 'assistant_coach');
         const coachName = coach ? coach.name : '監督';
+        const pos = player.currentPosition;
+
+        // Position-specific coaching dialogue
+        let positionAdvice = 'チーム全体のバランスと攻守の切り替えをもっと速く意識しろ。';
+        let positionOption = '「チームのために全力で走り、攻守に貢献します！」';
+        if (pos === 'CF' || pos === 'ST') {
+          positionAdvice = 'FWは結果がすべてだ。ペナルティエリア内での嗅覚と、泥臭くゴールをもぎ取る決定力を磨け。';
+          positionOption = '「どんな形でもゴールを奪い、チームを勝たせるストライカーになります！」';
+        } else if (pos === 'WG') {
+          positionAdvice = 'サイドでの1対1は常に仕掛けろ。縦への突破力と、中の味方に合わせるクロスの質が武器になる。';
+          positionOption = '「サイドを切り裂いてチャンスを量産してみせます！」';
+        } else if (pos === 'OMF' || pos === 'CMF') {
+          positionAdvice = '中盤のリズムはお前が作れ。パスの強弱、受ける前の首振り、そして決定的なラストパスの視野だ。';
+          positionOption = '「ゲームを支配し、決定的なラストパスを味方に供給し続けます！」';
+        } else if (pos === 'DMF' || pos === 'CB' || pos === 'SB') {
+          positionAdvice = '守備の要としての声出しとライン統率だ。1対1の対人強度と、危機察知の予測で味方を救え。';
+          positionOption = '「最終ラインの統率と球際の激しさで、ゴールを死守します！」';
+        } else if (pos === 'GK') {
+          positionAdvice = '最後方からのコーチングで守備陣を動かせ。シュートストップだけでなくハイボールの安定感も重要だ。';
+          positionOption = '「最後方から声を張り上げ、鉄壁のゴールキーパーとしてゴールを守り抜きます！」';
+        }
 
         const faceToFace: FaceToFaceEvent = {
           id: `ftf_consult_${Date.now()}`,
@@ -137,22 +158,22 @@ export function executeFreeTimeActivity(
           dialogueText: `「お前か。どうした？練習や次の試合について、何か話したいことでもあるのか？」`,
           options: [
             {
-              text: '「次の試合、先発スタメンで使ってください！」と直訴する',
-              response: '「いい気迫だ。その積極性は嫌いじゃない。練習での動きと戦術理解が伴っていれば、ピッチに立たせてやる。」',
-              trustDelta: player.fatigue < 40 ? 4 : 1,
-              attitudeDelta: 3
-            },
-            {
-              text: '「今の自分の課題や、改善すべき点を教えてください」と助言を乞う',
-              response: '「真摯に成長しようとする姿勢は素晴らしい。基礎技術の正確さと、ボールを持たない時のポジショニングをさらに磨け。」',
+              text: positionOption,
+              response: `「いい気迫だ！${positionAdvice}その意識を忘れずにグラウンドで体現してみせろ。」`,
               trustDelta: 3,
               attitudeDelta: 4
             },
             {
-              text: '「コンディションを万全にして、チームの勝利に貢献します」と意気込みを伝える',
-              response: '「うむ、頼もしいな。怪我や過度の疲労にだけは気をつけて、チームを引っ張ってくれ。」',
-              trustDelta: 2,
-              attitudeDelta: 2
+              text: '「次の試合、先発スタメンで使ってください！」と直訴する',
+              response: '「その積極性は嫌いじゃない。練習での動きと戦術理解が伴っていれば、ピッチに立たせてやる。」',
+              trustDelta: player.fatigue < 40 ? 4 : 1,
+              attitudeDelta: 3
+            },
+            {
+              text: '「将来プロの世界で戦うために、今自分に最も足りない部分を教えてください」と進路相談する',
+              response: '「プロの世界は厳しく、90分間戦い抜くメンタルと基礎技術の絶対的な安定性が求められる。驕らず日々の練習を積み重ねろ。」',
+              trustDelta: 3,
+              attitudeDelta: 3
             }
           ]
         };
@@ -186,7 +207,7 @@ export function executeFreeTimeActivity(
       }
 
       case 'hangout_friend': {
-        const friend = contacts.find(c => c.id === options?.friendId) || contacts.find(c => c.role === 'friend') || contacts[0];
+        const friend = contacts.find(c => c.id === options?.friendId) || contacts.find(c => c.role === 'friend' || c.role === 'romance' || c.role === 'teammate') || contacts[0];
         if (!friend) {
           return {
             fatigueDelta: 0,
@@ -198,8 +219,95 @@ export function executeFreeTimeActivity(
         const newAffinity = Math.min(100, (friend.affinity || 50) + affinityGain);
         const becameBestFriend = friend.role === 'friend' && friend.relationship !== 'best_friend' && newAffinity >= 80;
 
+        // Generate diverse Face-to-Face event based on relationship & role
+        let ftfEvent: FaceToFaceEvent | undefined = undefined;
+        const isLover = friend.relationship === 'dating' || friend.role === 'romance';
+        const isTeammate = friend.role === 'teammate';
+
+        if (isLover) {
+          ftfEvent = {
+            id: `ftf_date_${Date.now()}`,
+            speakerName: friend.name,
+            speakerRole: 'romance',
+            speakerTitle: `${friend.name}（恋人とデート）`,
+            situation: `放課後、${friend.name}とカフェでお茶をしながら並んで歩く特別な時間を過ごしました。`,
+            dialogueText: `「ふふ、今日は一緒に過ごせてすごく嬉しいな！次の試合も応援に行くから、かっこいい姿見せてね？」`,
+            options: [
+              {
+                text: '「ありがとう！絶対にゴールや良いプレーを決めて喜ばせるよ」と笑顔で応える',
+                response: '「うん！信じてるよ。怪我だけは絶対に気をつけてね！」',
+                attitudeDelta: 3
+              },
+              {
+                text: '「いつも支えてくれて感謝してるよ。今度美味しいスイーツでも食べに行こう」と約束する',
+                response: '「やったぁ！約束だよ？すごく楽しみにしてるね！」',
+                attitudeDelta: 2
+              },
+              {
+                text: '「実は最近、サッカーで少し悩んでることがあって…」と胸の内を明かす',
+                response: '「そうだったんだ…何があっても私はあなたの味方だから、いつでも話してね。」',
+                attitudeDelta: 4
+              }
+            ]
+          };
+        } else if (isTeammate) {
+          ftfEvent = {
+            id: `ftf_teammate_${Date.now()}`,
+            speakerName: friend.name,
+            speakerRole: 'teammate',
+            speakerTitle: `${friend.name}（チームメイトと食事）`,
+            situation: `練習帰りに${friend.name}とファミレスに寄り、ドリンクバーを飲みながらサッカー談義に花を咲かせました。`,
+            dialogueText: `「なぁ、次の対戦相手の守備ライン、結構足が速いらしいぜ。俺たちの連携をどう合わせていく？」`,
+            options: [
+              {
+                text: '「ワンツーで狭いエリアを素早く打開しよう。息を合わせるぞ！」',
+                response: '「よし、そのイメージで行こう！俺がスペースを空けるから飛び出してくれ！」',
+                attitudeDelta: 3
+              },
+              {
+                text: '「相手の背後のスペースを突くロングフィードを狙っていこう！」',
+                response: '「いい狙いだな。タイミングを合わせて一気に裏へ抜け出すぜ！」',
+                attitudeDelta: 3
+              },
+              {
+                text: '「お互い将来プロになって、同じピッチで戦うのが夢だな」と熱く語る',
+                response: '「ああ！絶対にプロになって、世界の大舞台でボールを蹴ろうぜ！」',
+                attitudeDelta: 4
+              }
+            ]
+          };
+        } else {
+          // Regular friend hangout
+          ftfEvent = {
+            id: `ftf_friend_${Date.now()}`,
+            speakerName: friend.name,
+            speakerRole: 'friend',
+            speakerTitle: `${friend.name}（放課後の交流）`,
+            situation: `放課後、${friend.name}と一緒にゲームセンターやショッピングモールで楽しい時間を過ごしました。`,
+            dialogueText: `「久しぶりに遊べて楽しかったな！サッカーの練習毎日ハードそうだけど、たまには息抜きも必要だよな？」`,
+            options: [
+              {
+                text: '「すごく良いリフレッシュになった！ありがとう！」と感謝を伝える',
+                response: '「どういたしまして！またいつでも付き合うから声かけてよな！」',
+                attitudeDelta: 3
+              },
+              {
+                text: '「進路や将来のことで考えてることがあれば相談に乗るよ」と話を聞く',
+                response: '「お前も自分の夢に向かって頑張ってるもんな。俺も負けてられないぜ！」',
+                attitudeDelta: 2
+              },
+              {
+                text: '「今度の週末の試合、時間があったら見に来てよ！」と誘う',
+                response: '「もちろん見に行くよ！スタンドから大声で応援するからな！」',
+                attitudeDelta: 3
+              }
+            ]
+          };
+        }
+
         return {
           fatigueDelta: +2,
+          faceToFaceTriggered: ftfEvent,
           friendAffinityDelta: {
             personId: friend.id,
             delta: affinityGain,

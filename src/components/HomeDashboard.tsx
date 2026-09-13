@@ -227,11 +227,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     }
   };
 
-  // Handle Injury Rehab
+  // Handle Injury Rehab (strictly 1 time per day)
   const handleRehab = () => {
+    if (gameState.player.rehabDoneToday) return;
+
     const res = performRehabilitation(gameState);
     onUpdateGameState(prev => {
-      let updatedPlayer = { ...prev.player };
+      let updatedPlayer = { ...prev.player, rehabDoneToday: true };
       if (updatedPlayer.injury && res.daysReduced > 0) {
         const remaining = updatedPlayer.injury.daysRemaining - res.daysReduced;
         if (remaining <= 0) {
@@ -330,13 +332,31 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
           {/* Action buttons for practice: strictly 1 time per day! */}
           {player.injury ? (
-            <button
-              onClick={handleRehab}
-              className="w-full py-2.5 rounded-xl bg-rose-900/60 hover:bg-rose-800 border border-rose-700 text-rose-200 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <HeartPulse className="w-4 h-4" />
-              トレーナーとリハビリメニューを行う（復帰促進）
-            </button>
+            player.rehabDoneToday ? (
+              <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-800/60 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-rose-800 flex items-center justify-center text-rose-200">
+                    <Check className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-rose-300">本日のリハビリは終了しました</div>
+                    <div className="text-[10px] text-slate-400">無理せず安静に過ごしてください（明日また実施可能）</div>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-rose-900/60 text-rose-300 px-2 py-0.5 rounded border border-rose-700">
+                  本日分完了
+                </span>
+              </div>
+            ) : (
+              <button
+                id="btn_perform_rehab"
+                onClick={handleRehab}
+                className="w-full py-2.5 rounded-xl bg-rose-900/60 hover:bg-rose-800 border border-rose-700 text-rose-200 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <HeartPulse className="w-4 h-4" />
+                トレーナーとリハビリメニューを行う（1日1回・復帰促進）
+              </button>
+            )
           ) : isPracticeDay ? (
             player.todayPracticeStatus === 'attended' ? (
               <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/80 flex items-center justify-between">

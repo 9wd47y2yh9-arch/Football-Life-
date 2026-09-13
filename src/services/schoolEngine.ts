@@ -102,39 +102,56 @@ export function checkSchoolEvents(currentDate: string): SchoolEvent | null {
 }
 
 export function handleAgeTransition(gameState: GameState): Partial<GameState> {
-  const { player } = gameState;
+  const { player, contacts } = gameState;
   const newAge = player.age + 1;
   let newSchoolStage: SchoolStage = player.schoolStage;
   let newSchoolName = player.schoolName;
 
   const countryData = COUNTRIES[player.currentCountry] || COUNTRIES.japan;
 
-  // School progression by age
-  if (newAge === 13) {
+  // School progression by age: flexible path (pro is not forced to 20, but chosen or offered)
+  if (player.wage > 0 || player.schoolStage === 'pro') {
+    newSchoolStage = 'pro';
+    newSchoolName = `${player.currentTeam.name}（プロ契約選手）`;
+  } else if (newAge >= 10 && newAge <= 12) {
+    newSchoolStage = 'elementary';
+    if (!newSchoolName || newSchoolName === 'プロ専念') {
+      newSchoolName = getRandomElement(countryData.schools.elementary);
+    }
+  } else if (newAge >= 13 && newAge <= 15) {
     newSchoolStage = 'middle';
-    newSchoolName = getRandomElement(countryData.schools.middle);
-  } else if (newAge === 16) {
+    if (player.schoolStage !== 'middle') {
+      newSchoolName = getRandomElement(countryData.schools.middle);
+    }
+  } else if (newAge >= 16 && newAge <= 18) {
     newSchoolStage = 'high';
-    newSchoolName = getRandomElement(countryData.schools.high);
-  } else if (newAge === 19) {
-    if (player.ovr >= 68 || player.wage > 0) {
+    if (player.schoolStage !== 'high') {
+      newSchoolName = getRandomElement(countryData.schools.high);
+    }
+  } else if (newAge >= 19) {
+    if (player.wage > 0) {
       newSchoolStage = 'pro';
-      newSchoolName = 'プロ専念';
+      newSchoolName = `${player.currentTeam.name}（プロ）`;
     } else {
       newSchoolStage = 'university';
-      newSchoolName = getRandomElement(countryData.schools.university);
+      if (player.schoolStage !== 'university') {
+        newSchoolName = getRandomElement(countryData.schools.university);
+      }
     }
   }
 
-  // Dual nationality event check
-  const dualNationalCheck = player.dualNationality && (newAge === 15 || newAge === 18) && !player.selectedNationalTeam;
+  // NPC Age Synchronization: Every contact grows 1 year older alongside player
+  const updatedContacts = (contacts || []).map(contact => ({
+    ...contact,
+    age: (contact.age || newAge) + 1
+  }));
 
   const timelineEntry = {
     id: `age_${newAge}_${Date.now()}`,
     age: newAge,
     date: gameState.currentDate,
     title: `${newAge}歳の誕生日`,
-    description: `${newAge}歳を迎えた。${newSchoolName}での生活とサッカーでの更なるステップアップを誓う。`,
+    description: `${newAge}歳を迎えた。${newSchoolName}での生活と、サッカー選手としてのさらなる飛躍を誓う。`,
     type: 'milestone' as const
   };
 
@@ -145,6 +162,7 @@ export function handleAgeTransition(gameState: GameState): Partial<GameState> {
       schoolStage: newSchoolStage,
       schoolName: newSchoolName
     },
+    contacts: updatedContacts,
     timeline: [timelineEntry, ...gameState.timeline]
   };
 }
