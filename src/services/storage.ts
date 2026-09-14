@@ -1,9 +1,84 @@
 import { GameState, Position, Gender, Team, Playstyle } from '../types/footballLife';
-import { COUNTRIES, getRandomElement, PLAYSTYLES } from '../data/worldData';
+import { COUNTRIES, getRandomElement, PLAYSTYLES, getClubHomeBase, findRealProClubByName } from '../data/worldData';
 import { generateInitialCharacters } from './characterEngine';
 import { generateLeagueSeason, calculatePlayerOVR } from './matchEngine';
+import { getPlayerMaxOvrForAge } from './trainingEngine';
 
 const STORAGE_KEY = 'FOOTBALL_LIFE_SAVE_DATA_V1';
+
+/**
+ * Non-destructive safe migration function for existing save files.
+ * Preserves all NPC relationships, stats, match history, and transfer logs,
+ * while repairing inconsistencies (Chelsea with Madrid homebase, 18yo with 99 OVR, decimal coach trust).
+ */
+export function migrateGameState(data: any): GameState {
+  if (!data || !data.player) return data;
+
+  const player = data.player;
+
+  // 1. Repair coachTrust to strictly integer (0-100)
+  if (typeof player.coachTrust === 'number') {
+    player.coachTrust = Math.round(Math.max(0, Math.min(100, player.coachTrust)));
+  } else {
+    player.coachTrust = 50;
+  }
+
+  // 2. Clamp all player stats to maximum 100, never 101+
+  if (player.stats) {
+    const isPro = (player.wage && player.wage > 0) || player.schoolStage === 'none' || (player.currentTeam && player.currentTeam.category === 'pro_club');
+    const statCap = (!isPro && player.age <= 18) ? (player.age <= 12 ? 35 : player.age <= 15 ? 42 : 50) : 100;
+    
+    for (const key of Object.keys(player.stats) as Array<keyof typeof player.stats>) {
+      player.stats[key] = Math.min(statCap, Math.min(100, Math.max(1, player.stats[key] || 30)));
+    }
+  }
+
+  // 3. Re-calculate and clamp OVR according to age
+  const maxOvr = getPlayerMaxOvrForAge(player);
+  const rawOvr = calculatePlayerOVR(player.stats, player.currentPosition);
+  player.ovr = Math.min(maxOvr, rawOvr);
+
+  // 4. Synchronize homeBase and currentCountry with currentTeam
+  const teamName = player.currentTeam?.name || '';
+  player.homeBase = getClubHomeBase(teamName);
+
+  const realClub = findRealProClubByName(teamName);
+  if (realClub) {
+    player.currentCountry = realClub.country;
+  }
+
+  // 5. Initialize funds and inventory if absent
+  if (typeof player.funds !== 'number') {
+    // Generous natural starting funds based on stage
+    if (player.wage && player.wage > 0) {
+      player.funds = Math.round(player.wage / 12);
+    } else if (player.age >= 16) {
+      player.funds = 50000;
+    } else {
+      player.funds = 20000;
+    }
+  }
+  if (!Array.isArray(player.inventory)) {
+    player.inventory = [];
+  }
+  if (!player.equippedGear) {
+    player.equippedGear = {};
+  }
+
+  // 6. Ensure arrays and structures exist without resetting progress
+  if (!data.activeFaceToFace) data.activeFaceToFace = null;
+  if (!data.activeOffSeason) data.activeOffSeason = null;
+  if (!Array.isArray(data.contacts)) data.contacts = [];
+  if (!Array.isArray(data.timeline)) data.timeline = [];
+  if (!Array.isArray(data.dailyLogs)) data.dailyLogs = [];
+  if (!Array.isArray(data.snsPosts)) data.snsPosts = [];
+  if (!Array.isArray(data.transferOffers)) data.transferOffers = [];
+  if (!Array.isArray(data.scoutInterests)) data.scoutInterests = [];
+  if (!Array.isArray(data.adminFeedbackLogs)) data.adminFeedbackLogs = [];
+  if (!data.recentContext) data.recentContext = {};
+
+  return data as GameState;
+}
 
 export function createNewGame(config: {
   name: string;
@@ -149,6 +224,10 @@ export function createNewGame(config: {
       coachTrust: 55,
       teamRole: 'starter',
       isLoaned: false,
+      homeBase: getClubHomeBase(team.name),
+      funds: 30000,
+      inventory: [],
+      equippedGear: {},
       fans: 3,
       snsFollowers: 22,
       snsHandle,
@@ -189,6 +268,7 @@ export function createNewGame(config: {
     activeOffSeason: null,
     transferOffers: [],
     scoutInterests: [],
+    adminFeedbackLogs: [],
     timeline: initialTimeline,
     dailyLogs: [
       {
@@ -215,13 +295,8 @@ export function loadGameState(): GameState | null {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return null;
-    const parsed = JSON.parse(data) as GameState;
-    if (!parsed.activeFaceToFace) parsed.activeFaceToFace = null;
-    if (!parsed.activeOffSeason) parsed.activeOffSeason = null;
-    if (!parsed.contacts) parsed.contacts = [];
-    if (!parsed.timeline) parsed.timeline = [];
-    if (!parsed.dailyLogs) parsed.dailyLogs = [];
-    return parsed;
+    const parsed = JSON.parse(data);
+    return migrateGameState(parsed);
   } catch (err) {
     console.error('Failed to load game state from localStorage:', err);
     return null;

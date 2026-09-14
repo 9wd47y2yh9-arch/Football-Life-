@@ -1,42 +1,68 @@
 import { GameState, MatchFixture, LeagueStanding, MatchMoment, MatchEventLog, Position, PlayerStats } from '../types/footballLife';
-import { COUNTRIES, getRandomElement, getRandomInt, findRealProClubByName, getProClubsForCountry, REAL_PRO_CLUBS } from '../data/worldData';
+import { 
+  COUNTRIES, 
+  getRandomElement, 
+  getRandomInt, 
+  findRealProClubByName, 
+  getProClubsForCountry, 
+  REAL_PRO_CLUBS,
+  HIGH_SCHOOL_TEAMS,
+  U18_YOUTH_ACADEMIES,
+  MIDDLE_SCHOOL_TEAMS,
+  ELEMENTARY_TEAMS
+} from '../data/worldData';
 
 /**
  * Calculates Position-Weighted OVR (Overall Rating)
+ * Enforces hard caps: individual stats <= 100, max OVR <= 99 (or age cap)
  */
-export function calculatePlayerOVR(stats: PlayerStats, position: Position): number {
+export function calculatePlayerOVR(stats: PlayerStats, position: Position, maxCap = 99): number {
   if (!stats) return 30;
+  
+  // Hard clamp each stat at 100
+  const clamped: PlayerStats = {
+    pace: Math.min(100, Math.max(1, stats.pace || 30)),
+    shooting: Math.min(100, Math.max(1, stats.shooting || 30)),
+    passing: Math.min(100, Math.max(1, stats.passing || 30)),
+    dribbling: Math.min(100, Math.max(1, stats.dribbling || 30)),
+    defending: Math.min(100, Math.max(1, stats.defending || 30)),
+    physical: Math.min(100, Math.max(1, stats.physical || 30)),
+    tacticalSense: Math.min(100, Math.max(1, stats.tacticalSense || 30)),
+    mental: Math.min(100, Math.max(1, stats.mental || 30)),
+    stamina: Math.min(100, Math.max(1, stats.stamina || 30)),
+  };
+
   let total = 0;
   switch (position) {
     case 'CF':
     case 'ST':
-      total = (stats.shooting || 30) * 0.30 + (stats.pace || 30) * 0.18 + (stats.dribbling || 30) * 0.16 + (stats.physical || 30) * 0.14 + (stats.tacticalSense || 30) * 0.11 + (stats.passing || 30) * 0.11;
+      total = clamped.shooting * 0.30 + clamped.pace * 0.18 + clamped.dribbling * 0.16 + clamped.physical * 0.14 + clamped.tacticalSense * 0.11 + clamped.passing * 0.11;
       break;
     case 'WG':
-      total = (stats.pace || 30) * 0.28 + (stats.dribbling || 30) * 0.25 + (stats.passing || 30) * 0.18 + (stats.shooting || 30) * 0.16 + (stats.stamina || 30) * 0.13;
+      total = clamped.pace * 0.28 + clamped.dribbling * 0.25 + clamped.passing * 0.18 + clamped.shooting * 0.16 + clamped.stamina * 0.13;
       break;
     case 'OMF':
-      total = (stats.passing || 30) * 0.26 + (stats.dribbling || 30) * 0.22 + (stats.tacticalSense || 30) * 0.20 + (stats.shooting || 30) * 0.16 + (stats.pace || 30) * 0.16;
+      total = clamped.passing * 0.26 + clamped.dribbling * 0.22 + clamped.tacticalSense * 0.20 + clamped.shooting * 0.16 + clamped.pace * 0.16;
       break;
     case 'CMF':
-      total = (stats.passing || 30) * 0.25 + (stats.stamina || 30) * 0.20 + (stats.tacticalSense || 30) * 0.18 + (stats.dribbling || 30) * 0.14 + (stats.defending || 30) * 0.13 + (stats.physical || 30) * 0.10;
+      total = clamped.passing * 0.25 + clamped.stamina * 0.20 + clamped.tacticalSense * 0.18 + clamped.dribbling * 0.14 + clamped.defending * 0.13 + clamped.physical * 0.10;
       break;
     case 'DMF':
-      total = (stats.defending || 30) * 0.28 + (stats.physical || 30) * 0.22 + (stats.passing || 30) * 0.18 + (stats.tacticalSense || 30) * 0.18 + (stats.stamina || 30) * 0.14;
+      total = clamped.defending * 0.28 + clamped.physical * 0.22 + clamped.passing * 0.18 + clamped.tacticalSense * 0.18 + clamped.stamina * 0.14;
       break;
     case 'CB':
-      total = (stats.defending || 30) * 0.35 + (stats.physical || 30) * 0.25 + (stats.tacticalSense || 30) * 0.18 + (stats.pace || 30) * 0.12 + (stats.stamina || 30) * 0.10;
+      total = clamped.defending * 0.35 + clamped.physical * 0.25 + clamped.tacticalSense * 0.18 + clamped.pace * 0.12 + clamped.stamina * 0.10;
       break;
     case 'SB':
-      total = (stats.pace || 30) * 0.26 + (stats.stamina || 30) * 0.22 + (stats.defending || 30) * 0.20 + (stats.passing || 30) * 0.18 + (stats.dribbling || 30) * 0.14;
+      total = clamped.pace * 0.26 + clamped.stamina * 0.22 + clamped.defending * 0.20 + clamped.passing * 0.18 + clamped.dribbling * 0.14;
       break;
     case 'GK':
-      total = (stats.defending || 30) * 0.40 + (stats.physical || 30) * 0.25 + (stats.mental || 30) * 0.20 + (stats.tacticalSense || 30) * 0.15;
+      total = clamped.defending * 0.40 + clamped.physical * 0.25 + clamped.mental * 0.20 + clamped.tacticalSense * 0.15;
       break;
     default:
-      total = ((stats.pace || 30) + (stats.shooting || 30) + (stats.passing || 30) + (stats.dribbling || 30) + (stats.defending || 30) + (stats.physical || 30) + (stats.tacticalSense || 30) + (stats.mental || 30) + (stats.stamina || 30)) / 9;
+      total = (clamped.pace + clamped.shooting + clamped.passing + clamped.dribbling + clamped.defending + clamped.physical + clamped.tacticalSense + clamped.mental + clamped.stamina) / 9;
   }
-  return Math.max(20, Math.min(99, Math.round(total)));
+  return Math.max(20, Math.min(maxCap, Math.round(total)));
 }
 
 /**
@@ -124,7 +150,8 @@ export function generateLeagueSeason(
 } {
   const country = COUNTRIES[countryId] || COUNTRIES.japan;
   const proClub = findRealProClubByName(teamName);
-  const isPro = isProPlayer || Boolean(proClub) || playerAge >= 18;
+  // High schoolers without pro contract strictly remain amateur high school category
+  const isPro = isProPlayer || (Boolean(proClub) && playerAge >= 15 && !teamName.includes('高校') && !teamName.includes('中学校'));
   const targetDivision: 1 | 2 = division || proClub?.division || 1;
   const targetCountryId = proClub?.countryId || countryId;
 
@@ -132,42 +159,51 @@ export function generateLeagueSeason(
   let uniqueTeams: string[] = [];
 
   if (isPro) {
-    // Professional League: strictly use REAL professional clubs only
-    const realProClubs = getProClubsForCountry(targetCountryId, targetDivision);
-    const countryProClubs = REAL_PRO_CLUBS.filter(c => c.countryId === targetCountryId);
-    const otherProClubs = REAL_PRO_CLUBS.filter(c => c.countryId !== targetCountryId);
-
-    competitionName = proClub?.leagueName || (targetDivision === 1 ? `${country.name} 1部プロリーグ` : `${country.name} 2部プロリーグ`);
-
+    // Professional League: strictly use REAL professional clubs only of the SAME division!
+    // Never mix in high schools, middle schools, or youth teams
+    const divisionClubs = getProClubsForCountry(targetCountryId, targetDivision);
     const pool = [
       teamName,
-      ...realProClubs.map(c => c.name).filter(n => n !== teamName),
-      ...countryProClubs.map(c => c.name).filter(n => n !== teamName),
-      ...otherProClubs.map(c => c.name).filter(n => n !== teamName)
+      ...divisionClubs.map(c => c.name).filter(n => n !== teamName)
     ];
 
-    uniqueTeams = Array.from(new Set(pool)).slice(0, 8);
-  } else {
-    // Youth / School League
-    if (playerAge >= 16) {
-      competitionName = `${country.name} U-18プレミア・プリンスリーグ`;
-    } else if (playerAge >= 13) {
-      competitionName = `${country.name} U-15クラブユース・高円宮杯`;
+    if (pool.length < 8) {
+      // If fewer than 8 in current country's division, fill with other pro clubs of the same division
+      const sameDivOther = REAL_PRO_CLUBS.filter(c => c.division === targetDivision && c.name !== teamName);
+      for (const club of sameDivOther) {
+        if (!pool.includes(club.name)) pool.push(club.name);
+        if (pool.length >= 8) break;
+      }
     }
 
+    competitionName = proClub?.leagueName || (targetDivision === 1 ? `${country.name} 1部プロリーグ` : `${country.name} 2部プロリーグ`);
+    uniqueTeams = Array.from(new Set(pool)).slice(0, 8);
+  } else if (playerAge >= 16) {
+    // High School & U-18 Category: STRICTLY High School soccer clubs or U-18 Youth Academies
+    // Never mix in professional senior teams
+    competitionName = `高円宮杯 JFA U-18 プレミアリーグ`;
     const candidateTeams = [
       teamName,
-      ...country.youthTeams.map(t => t.name).filter(n => n !== teamName),
-      ...country.famousClubs.slice(0, 4).map(c => `${c} ユース`)
+      ...HIGH_SCHOOL_TEAMS.filter(t => t !== teamName),
+      ...U18_YOUTH_ACADEMIES.filter(t => t !== teamName)
     ];
-
     uniqueTeams = Array.from(new Set(candidateTeams)).slice(0, 8);
-    if (!uniqueTeams.includes(teamName)) {
-      uniqueTeams[0] = teamName;
-    }
-    while (uniqueTeams.length < 8) {
-      uniqueTeams.push(`FC アカデミー ${uniqueTeams.length + 1}`);
-    }
+  } else if (playerAge >= 13) {
+    // Middle School & U-15 Category: STRICTLY Junior High or U-15 Junior Youth
+    competitionName = `高円宮杯 JFA U-15 サッカーリーグ`;
+    const candidateTeams = [
+      teamName,
+      ...MIDDLE_SCHOOL_TEAMS.filter(t => t !== teamName)
+    ];
+    uniqueTeams = Array.from(new Set(candidateTeams)).slice(0, 8);
+  } else {
+    // Elementary & U-12 Category: STRICTLY U-12 Junior teams
+    competitionName = `JFA 全日本U-12サッカー選手権大会`;
+    const candidateTeams = [
+      teamName,
+      ...ELEMENTARY_TEAMS.filter(t => t !== teamName)
+    ];
+    uniqueTeams = Array.from(new Set(candidateTeams)).slice(0, 8);
   }
 
   if (!uniqueTeams.includes(teamName)) {

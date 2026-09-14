@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GameState, MatchFixture, MatchMoment, OffSeasonData } from '../types/footballLife';
-import { evaluateLineupRole, generateMatchMoments, simulateMatchResults, simulateMatchdayForAllTeams, calculatePlayerOVR } from '../services/matchEngine';
+import { evaluateLineupRole, generateMatchMoments, simulateMatchResults, simulateMatchdayForAllTeams } from '../services/matchEngine';
+import { calculateMatchExpGains, applyStatGainsAndRecalculateOvr } from '../services/trainingEngine';
 import { Shield, Trophy, Activity, ArrowRight, CheckCircle2, XCircle, Award, Star, Flame } from 'lucide-react';
 
 interface MatchModalProps {
@@ -111,14 +112,21 @@ export const MatchModal: React.FC<MatchModalProps> = ({
     // Update player
     let updatedPlayer = { ...gameState.player };
     updatedPlayer.fatigue = Math.min(100, updatedPlayer.fatigue + fatigueCost);
-    updatedPlayer.coachTrust = Math.max(0, Math.min(100, updatedPlayer.coachTrust + coachTrustDelta));
+    // Coach trust display is strictly integer (100-0)
+    updatedPlayer.coachTrust = Math.round(Math.max(0, Math.min(100, updatedPlayer.coachTrust + coachTrustDelta)));
     updatedPlayer.fans += fansGained;
 
-    if (ovrIncreased) {
-      updatedPlayer.ovr = Math.min(99, updatedPlayer.ovr + 1);
-    } else {
-      updatedPlayer.ovr = calculatePlayerOVR(updatedPlayer.stats, updatedPlayer.currentPosition);
-    }
+    // Calculate realistic match EXP gains based on matchday performance
+    const matchExp = calculateMatchExpGains(
+      updatedFixture.playerMinutes || 0,
+      playerGoals,
+      playerAssists,
+      playerRating,
+      updatedPlayer.currentPosition
+    );
+
+    const { updatedPlayer: expUpdatedPlayer } = applyStatGainsAndRecalculateOvr(updatedPlayer, matchExp);
+    updatedPlayer = expUpdatedPlayer;
 
     // Career timeline note if first goal or big rating
     let updatedTimeline = [...gameState.timeline];
@@ -333,13 +341,13 @@ export const MatchModal: React.FC<MatchModalProps> = ({
               </div>
             </div>
 
-            {/* OVR +1 Event if triggered */}
-            {matchResultData.ovrIncreased && (
-              <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-500 text-amber-300 text-xs flex items-center gap-2 animate-bounce">
+            {/* Match Experience Event */}
+            {matchResultData.playerRating >= 7.0 && (
+              <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-500 text-amber-300 text-xs flex items-center gap-2">
                 <Star className="w-5 h-5 text-amber-400 shrink-0 fill-amber-400" />
                 <div>
-                  <span className="font-bold">【能力開花！】</span> 試合での際立った活躍が成長を促し、
-                  総合能力（OVR）が <span className="font-black text-white">+1</span> 上昇しました！（現在: {gameState.player.ovr + 1}）
+                  <span className="font-bold">【実戦経験獲得！】</span> 試合での際立ったパフォーマンスにより、
+                  ポジション適性に応じた能力経験値が大幅に蓄積されました！
                 </div>
               </div>
             )}

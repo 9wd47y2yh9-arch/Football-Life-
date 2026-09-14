@@ -1,5 +1,5 @@
-import { GameState, FreeTimeActivity, Condition, StatExp, FaceToFaceEvent } from '../types/footballLife';
-import { getRandomInt, getRandomElement } from '../data/worldData';
+import { GameState, FreeTimeActivity, Condition, StatExp, FaceToFaceEvent, InventoryItem } from '../types/footballLife';
+import { getRandomInt, getRandomElement, SHOP_ITEMS } from '../data/worldData';
 
 export interface FreeTimeResult {
   fatigueDelta: number;
@@ -382,4 +382,183 @@ export function executeFreeTimeActivity(
       logText: '穏やかな時間を過ごして体力を整えました。（安全処理完了）'
     };
   }
+}
+
+/**
+ * Economy System: Purchase an item from the Shop
+ */
+export function purchaseShopItem(
+  gameState: GameState,
+  shopItemId: string
+): { success: boolean; message: string; updatedGameState: GameState } {
+  const { player } = gameState;
+  const item = SHOP_ITEMS.find(i => i.id === shopItemId);
+  if (!item) {
+    return { success: false, message: '指定されたアイテムが見つかりませんでした。', updatedGameState: gameState };
+  }
+
+  const currentFunds = player.funds ?? 30000;
+  if (currentFunds < item.price) {
+    return {
+      success: false,
+      message: `所持金が足りません。（必要: ¥${item.price.toLocaleString()} / 所持金: ¥${currentFunds.toLocaleString()}）`,
+      updatedGameState: gameState
+    };
+  }
+
+  const newFunds = currentFunds - item.price;
+  const newInventoryItem: InventoryItem = {
+    id: `inv_${item.id}_${Date.now()}`,
+    shopItemId: item.id,
+    name: item.name,
+    category: item.category,
+    purchasedDate: gameState.currentDate,
+    isEquipped: false,
+    durabilityRemaining: item.durability,
+    statBonus: item.statBonus
+  };
+
+  let updatedPlayer = {
+    ...player,
+    funds: newFunds,
+    inventory: [...(player.inventory || []), newInventoryItem]
+  };
+
+  // Immediate effect items (e.g. nutrition, recovery sessions)
+  let effectMessage = '';
+  if (item.category === 'nutrition') {
+    updatedPlayer.fatigue = Math.max(0, updatedPlayer.fatigue - 15);
+    effectMessage = '（疲労が15%回復しました！）';
+  } else if (item.category === 'recovery') {
+    updatedPlayer.fatigue = Math.max(0, updatedPlayer.fatigue - 25);
+    updatedPlayer.condition = 'superb';
+    effectMessage = '（疲労が25%回復し、コンディションが最高になりました！）';
+  }
+
+  const logText = `【ショップ購入】『${item.name}』を ¥${item.price.toLocaleString()} で購入しました。${effectMessage}`;
+
+  const updatedGameState: GameState = {
+    ...gameState,
+    player: updatedPlayer,
+    dailyLogs: [
+      {
+        date: gameState.currentDate,
+        text: logText,
+        type: 'event'
+      },
+      ...gameState.dailyLogs
+    ]
+  };
+
+  return {
+    success: true,
+    message: `${item.name}を購入しました！${effectMessage}`,
+    updatedGameState
+  };
+}
+
+/**
+ * Equip Cleats/Gear
+ */
+export function equipCleats(
+  gameState: GameState,
+  inventoryItemId: string
+): { success: boolean; message: string; updatedGameState: GameState } {
+  const { player } = gameState;
+  const inventory = [...(player.inventory || [])];
+  const targetIndex = inventory.findIndex(i => i.id === inventoryItemId);
+
+  if (targetIndex === -1) {
+    return { success: false, message: '所持品の中に該当アイテムがありません。', updatedGameState: gameState };
+  }
+
+  const item = inventory[targetIndex];
+  if (item.category !== 'cleats') {
+    return { success: false, message: 'このアイテムはスパイクとして装備できません。', updatedGameState: gameState };
+  }
+
+  // Unequip previously equipped cleats
+  const updatedInventory = inventory.map(inv => {
+    if (inv.category === 'cleats') {
+      return { ...inv, isEquipped: inv.id === inventoryItemId };
+    }
+    return inv;
+  });
+
+  const equippedItem = { ...item, isEquipped: true };
+  const updatedPlayer = {
+    ...player,
+    inventory: updatedInventory,
+    equippedGear: {
+      ...(player.equippedGear || {}),
+      cleats: equippedItem
+    }
+  };
+
+  return {
+    success: true,
+    message: `『${item.name}』を装備しました！実戦や練習でのパフォーマンスが向上します。`,
+    updatedGameState: {
+      ...gameState,
+      player: updatedPlayer
+    }
+  };
+}
+
+/**
+ * Use a consumable item (recovery, nutrition)
+ */
+export function useConsumableItem(
+  gameState: GameState,
+  inventoryItemId: string
+): { success: boolean; message: string; updatedGameState: GameState } {
+  const { player } = gameState;
+  const inventory = [...(player.inventory || [])];
+  const targetIndex = inventory.findIndex(i => i.id === inventoryItemId);
+
+  if (targetIndex === -1) {
+    return { success: false, message: '所持品の中に該当アイテムがありません。', updatedGameState: gameState };
+  }
+
+  const item = inventory[targetIndex];
+  if (item.category === 'cleats') {
+    return { success: false, message: 'スパイクは消費アイテムではありません。「装備」してください。', updatedGameState: gameState };
+  }
+
+  // Apply consumable effect
+  let updatedPlayer = { ...player };
+  let effectText = '';
+
+  if (item.name.includes('アミノ酸') || item.name.includes('プロテイン')) {
+    updatedPlayer.fatigue = Math.max(0, updatedPlayer.fatigue - 20);
+    effectText = '疲労が -20% 回復しました。';
+  } else if (item.name.includes('酸素カプセル') || item.name.includes('マッサージ')) {
+    updatedPlayer.fatigue = Math.max(0, updatedPlayer.fatigue - 35);
+    updatedPlayer.condition = 'superb';
+    effectText = '疲労が -35% 回復し、絶好調（SUPERB）になりました！';
+  } else {
+    updatedPlayer.fatigue = Math.max(0, updatedPlayer.fatigue - 15);
+    effectText = '疲労が -15% 回復しました。';
+  }
+
+  // Remove from inventory
+  const updatedInventory = inventory.filter(i => i.id !== inventoryItemId);
+  updatedPlayer.inventory = updatedInventory;
+
+  return {
+    success: true,
+    message: `『${item.name}』を使用しました！${effectText}`,
+    updatedGameState: {
+      ...gameState,
+      player: updatedPlayer,
+      dailyLogs: [
+        {
+          date: gameState.currentDate,
+          text: `【アイテム使用】『${item.name}』を使用しました。（${effectText}）`,
+          type: 'event'
+        },
+        ...gameState.dailyLogs
+      ]
+    }
+  };
 }

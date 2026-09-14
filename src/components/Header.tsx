@@ -1,7 +1,7 @@
 import React from 'react';
 import { GameState } from '../types/footballLife';
 import { COUNTRIES } from '../data/worldData';
-import { Shield, Heart, Activity, Users, MessageSquare, AlertTriangle, ArrowRight, Smartphone, Settings, FastForward, Calendar, Save } from 'lucide-react';
+import { Shield, Heart, Activity, Users, MessageSquare, AlertTriangle, ArrowRight, Smartphone, Settings, FastForward, Calendar, Save, ShoppingBag, Coins } from 'lucide-react';
 import { formatDateJapanese } from '../services/gameEngine';
 
 interface HeaderProps {
@@ -12,6 +12,7 @@ interface HeaderProps {
   daysUntilMatch?: number;
   onOpenSmartphone: () => void;
   onOpenSettings: () => void;
+  onOpenShop?: () => void;
   isProcessingNextDay: boolean;
   isAutoAdvancing: boolean;
   isSaving?: boolean;
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   daysUntilMatch,
   onOpenSmartphone,
   onOpenSettings,
+  onOpenShop,
   isProcessingNextDay,
   isAutoAdvancing,
   isSaving
@@ -92,6 +94,19 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Nav & Main Action */}
           <div className="flex items-center gap-2">
+            {/* Shop & Funds Button */}
+            {onOpenShop && (
+              <button
+                id="header_shop_btn"
+                onClick={onOpenShop}
+                className="px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                title="ギア＆ケアショップ（スパイク・サプリ購入）"
+              >
+                <ShoppingBag className="w-4 h-4 text-amber-400" />
+                <span className="font-mono font-black">¥{(player.funds ?? 30000).toLocaleString()}</span>
+              </button>
+            )}
+
             {/* Smartphone Button */}
             <button
               id="header_phone_btn"

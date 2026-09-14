@@ -1,5 +1,5 @@
 import { GameState, TransferOffer, TransferType, Team, Position, LoanTerms, MatchFixture, LeagueStanding } from '../types/footballLife';
-import { COUNTRIES, REAL_PRO_CLUBS, RealProClub, getRandomElement, getRandomInt, findRealProClubByName } from '../data/worldData';
+import { COUNTRIES, REAL_PRO_CLUBS, RealProClub, getRandomElement, getRandomInt, findRealProClubByName, getClubHomeBase } from '../data/worldData';
 import { generateInitialCharacters } from './characterEngine';
 import { generateLeagueSeason } from './matchEngine';
 
@@ -756,6 +756,7 @@ export function completeTransfer(
       ...updatedPlayer,
       currentTeam: newTeam,
       currentCountry: countryId,
+      homeBase: getClubHomeBase(newTeam.name),
       // High initial coach trust ensuring immediate match eligibility for new signing
       coachTrust: hasStarterPromise ? 85 : 78,
       teamRole: hasStarterPromise ? 'starter' : 'bench',
@@ -809,6 +810,7 @@ export function completeTransfer(
       ...updatedPlayer,
       currentTeam: newTeam,
       currentCountry: countryId,
+      homeBase: getClubHomeBase(newTeam.name),
       coachTrust: 80, // Loan club coach actively plays loaned player as key reinforcement
       teamRole: terms.rolePromise === 'starter' ? 'starter' : 'bench',
       fatigue: Math.min(updatedPlayer.fatigue, 20),
@@ -902,6 +904,7 @@ export function checkLoanReturn(gameState: GameState): Partial<GameState> | null
       ...player,
       currentTeam: parentClub,
       currentCountry: countryId,
+      homeBase: getClubHomeBase(parentClub.name),
       coachTrust: Math.min(100, player.loanTerms.parentCoachTrust + (goals > 0 || matches >= 5 ? 12 : 6)),
       teamRole: 'starter',
       isLoaned: false,

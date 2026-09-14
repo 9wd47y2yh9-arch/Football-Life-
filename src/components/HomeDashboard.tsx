@@ -7,7 +7,7 @@ import { getDaysBetweenDates, formatDateJapanese } from '../services/gameEngine'
 import { 
   Calendar, Dumbbell, BookOpen, Gamepad2, Users, Moon, Coffee, 
   Shield, AlertTriangle, Trophy, ArrowRight, HeartPulse, Check, Sparkles, X, Clock, HelpCircle,
-  CheckCircle, Heart, FastForward, MessageSquare
+  CheckCircle, Heart, FastForward, MessageSquare, ShoppingBag
 } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -15,6 +15,7 @@ interface HomeDashboardProps {
   onUpdateGameState: (updater: (prev: GameState) => GameState) => void;
   onOpenMatchModal: () => void;
   onOpenSmartphone: () => void;
+  onOpenShop?: () => void;
   onAutoAdvance?: () => void;
   isAutoAdvancing?: boolean;
 }
@@ -24,6 +25,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onUpdateGameState,
   onOpenMatchModal,
   onOpenSmartphone,
+  onOpenShop,
   onAutoAdvance,
   isAutoAdvancing = false
 }) => {
@@ -532,11 +534,22 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <Sparkles className="w-4 h-4 text-emerald-400" />
             <h3 className="text-sm font-bold text-white">放課後・自由行動（1日1回選択）</h3>
           </div>
-          <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
-            freeTimeUsedToday ? 'bg-slate-800 text-slate-400' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-          }`}>
-            {freeTimeUsedToday ? '本日の行動完了済' : '未消化（選択可能）'}
-          </span>
+          <div className="flex items-center gap-2">
+            {onOpenShop && (
+              <button
+                onClick={onOpenShop}
+                className="px-3 py-1 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-amber-400" />
+                <span>ギア＆ケアショップ</span>
+              </button>
+            )}
+            <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
+              freeTimeUsedToday ? 'bg-slate-800 text-slate-400' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+            }`}>
+              {freeTimeUsedToday ? '本日の行動完了済' : '未消化（選択可能）'}
+            </span>
+          </div>
         </div>
 
         {freeTimeResultText && (

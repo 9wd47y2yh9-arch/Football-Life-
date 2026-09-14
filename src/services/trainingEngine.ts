@@ -1,4 +1,4 @@
-import { GameState, Injury, InjurySeverity, Condition, StatExp, PlayerStats, PracticeAbsenceReasonId, Player } from '../types/footballLife';
+import { GameState, Injury, InjurySeverity, Condition, StatExp, PlayerStats, PracticeAbsenceReasonId, Player, Position } from '../types/footballLife';
 import { getRandomElement, getRandomInt, PRACTICE_ABSENCE_REASONS, PLAYSTYLES } from '../data/worldData';
 import { calculatePlayerOVR } from './matchEngine';
 
@@ -18,39 +18,51 @@ export interface DailyTrainingResult {
  * Calculates Growth Multiplier based on Age and Growth Type
  * (Golden age 15-24 accelerates growth, removes 40 OVR cap, enables scaling to 90+)
  */
+/**
+ * Calculates Growth Multiplier based on Age and Category
+ * Strict age curve:
+ * Elementary (10-12): ~30
+ * Middle school (13-15): ~35
+ * High school (16-18): ~43, strictly capped at 45!
+ * Pro (20-33): gradual professional growth
+ * Stats absolute hard cap: 100
+ */
 export function getPlayerGrowthMultiplier(player: Player): number {
   const age = player.age || 15;
-  const growthType = player.growthType || 'normal';
+  const isPro = (player.wage && player.wage > 0) || player.schoolStage === 'pro' || (player.currentTeam && player.currentTeam.category === 'pro');
 
   let ageFactor = 1.0;
-  if (age >= 10 && age <= 14) {
-    ageFactor = 1.4; // Junior foundation
-  } else if (age >= 15 && age <= 19) {
-    ageFactor = 2.4; // Golden age explosive growth
-  } else if (age >= 20 && age <= 24) {
-    ageFactor = 2.0; // Early career prime expansion
-  } else if (age >= 25 && age <= 28) {
-    ageFactor = 1.5; // Peak mastery
-  } else if (age >= 29 && age <= 33) {
-    ageFactor = 1.1; // Veteran consolidation
+  if (age >= 10 && age <= 12) {
+    ageFactor = 0.8; // Elementary foundation
+  } else if (age >= 13 && age <= 15) {
+    ageFactor = 0.9; // Middle school gradual development
+  } else if (age >= 16 && age <= 18) {
+    // High school development - steady but disciplined so it reaches ~43 and never exceeds 45
+    ageFactor = isPro ? 1.4 : 1.0;
+  } else if (age >= 19 && age <= 23) {
+    ageFactor = 1.6; // Early pro prime growth
+  } else if (age >= 24 && age <= 29) {
+    ageFactor = 1.8; // Professional peak prime
+  } else if (age >= 30 && age <= 33) {
+    ageFactor = 0.8; // Veteran maintenance
   } else {
-    ageFactor = 0.8; // Late career
+    ageFactor = 0.4; // Late veteran gradual decline
   }
 
   let typeFactor = 1.0;
-  switch (growthType) {
+  switch (player.growthType) {
     case 'prodigy':
-      typeFactor = 1.8;
+      typeFactor = 1.3;
       break;
     case 'early':
-      typeFactor = age <= 21 ? 1.5 : 0.9;
+      typeFactor = age <= 21 ? 1.2 : 0.8;
       break;
     case 'late':
-      typeFactor = age >= 20 ? 1.6 : 1.1;
+      typeFactor = age >= 23 ? 1.3 : 0.9;
       break;
     case 'normal':
     default:
-      typeFactor = 1.2;
+      typeFactor = 1.0;
       break;
   }
 
@@ -58,7 +70,28 @@ export function getPlayerGrowthMultiplier(player: Player): number {
 }
 
 /**
- * Applies EXP gains, triggers stat level-ups when EXP >= 100, and recalculates OVR up to 99
+ * Returns the strict maximum OVR permissible for the player's age and stage.
+ * High School is strictly capped at 45.
+ */
+export function getPlayerMaxOvrForAge(player: Player): number {
+  const age = player.age || 15;
+  const isPro = (player.wage && player.wage > 0) || player.schoolStage === 'pro' || (player.currentTeam && player.currentTeam.category === 'pro');
+
+  if (age <= 12) return 32;
+  if (age <= 15 && !isPro) return 38;
+  // High schoolers (16-18) non-pro strictly capped at 45
+  if (age <= 18 && !isPro) return 45;
+  if (age <= 18 && isPro) return 60;
+  if (age <= 20) return 65;
+  if (age <= 22) return 75;
+  if (age <= 24) return 82;
+  if (age <= 33) return 99; // Top pro peak
+  return 99;
+}
+
+/**
+ * Applies EXP gains, triggers stat level-ups when EXP >= 100, and recalculates OVR.
+ * Enforces hard caps: stat <= 100, and age-based OVR caps (High school <= 45).
  */
 export function applyStatGainsAndRecalculateOvr(
   player: Player,
@@ -77,23 +110,38 @@ export function applyStatGainsAndRecalculateOvr(
   const multiplier = getPlayerGrowthMultiplier(player);
   const upgradedStats: string[] = [];
   const statKeys = Object.keys(expGained) as Array<keyof StatExp>;
+  const isPro = (player.wage && player.wage > 0) || player.schoolStage === 'pro' || (player.currentTeam && player.currentTeam.category === 'pro');
+  
+  // Stat ceiling based on stage:
+  // Non-pro high schoolers cap individual stats at 50 so OVR never exceeds 45
+  const statMax = (!isPro && updatedPlayer.age <= 18) ? (updatedPlayer.age <= 12 ? 35 : updatedPlayer.age <= 15 ? 42 : 50) : 100;
 
   for (const stat of statKeys) {
     const rawGain = expGained[stat] || 0;
     if (rawGain <= 0) continue;
 
-    // Apply age and growth multiplier
-    const gain = Math.max(1, Math.round(rawGain * multiplier));
-    const currentExp = updatedPlayer.statExp[stat] || 0;
     const currentVal = updatedPlayer.stats[stat] || 30;
+    // Hard cap at 100 (and stage ceiling)
+    if (currentVal >= statMax || currentVal >= 100) {
+      updatedPlayer.statExp[stat] = 0;
+      continue;
+    }
+
+    // Apply multiplier, with natural resistance as stat approaches ceiling
+    const resistance = currentVal >= 85 ? 0.4 : currentVal >= 70 ? 0.7 : 1.0;
+    const gain = Math.max(1, Math.round(rawGain * multiplier * resistance));
+    const currentExp = updatedPlayer.statExp[stat] || 0;
 
     const totalExp = currentExp + gain;
     if (totalExp >= 100) {
       const levelsGained = Math.floor(totalExp / 100);
       updatedPlayer.statExp[stat] = totalExp % 100;
-      // Allow growth up to 99 (no 40 cap!)
-      updatedPlayer.stats[stat] = Math.min(99, currentVal + levelsGained);
-      upgradedStats.push(stat);
+      // Absolute hard cap at 100, never 101+
+      const newVal = Math.min(statMax, Math.min(100, currentVal + levelsGained));
+      if (newVal > currentVal) {
+        updatedPlayer.stats[stat] = newVal;
+        upgradedStats.push(stat);
+      }
     } else {
       updatedPlayer.statExp[stat] = totalExp;
     }
@@ -101,13 +149,17 @@ export function applyStatGainsAndRecalculateOvr(
 
   // Recalculate OVR whenever stats or level-ups happen
   const prevOvr = updatedPlayer.ovr;
-  const newOvr = calculatePlayerOVR(updatedPlayer.stats, updatedPlayer.currentPosition);
-  updatedPlayer.ovr = newOvr;
+  let rawOvr = calculatePlayerOVR(updatedPlayer.stats, updatedPlayer.currentPosition);
+  
+  // Strict age cap enforcement
+  const maxOvr = getPlayerMaxOvrForAge(updatedPlayer);
+  const cappedOvr = Math.min(maxOvr, Math.min(99, rawOvr));
+  updatedPlayer.ovr = cappedOvr;
 
   return {
     updatedPlayer,
     upgradedStats,
-    ovrChanged: newOvr !== prevOvr
+    ovrChanged: cappedOvr !== prevOvr
   };
 }
 
@@ -167,54 +219,54 @@ export function processDailyTeamPractice(
       }
     }
 
-    // Stat Exp Gain: Position-tailored and comprehensive with playstyle bonuses
+    // Stat Exp Gain: Position-tailored and comprehensive with balanced team development
     const pos = player.currentPosition;
     const baseExp: Partial<StatExp> = {
-      tacticalSense: getRandomInt(6, 12),
-      stamina: getRandomInt(5, 10),
-      mental: getRandomInt(4, 8)
+      tacticalSense: getRandomInt(2, 5),
+      stamina: getRandomInt(2, 4),
+      mental: getRandomInt(1, 3)
     };
 
     if (pos === 'CF' || pos === 'ST') {
-      baseExp.shooting = getRandomInt(10, 18);
-      baseExp.pace = getRandomInt(6, 12);
-      baseExp.dribbling = getRandomInt(6, 12);
-      baseExp.physical = getRandomInt(5, 10);
+      baseExp.shooting = getRandomInt(3, 7);
+      baseExp.pace = getRandomInt(2, 5);
+      baseExp.dribbling = getRandomInt(2, 5);
+      baseExp.physical = getRandomInt(2, 4);
     } else if (pos === 'WG') {
-      baseExp.pace = getRandomInt(10, 18);
-      baseExp.dribbling = getRandomInt(10, 16);
-      baseExp.passing = getRandomInt(6, 12);
-      baseExp.shooting = getRandomInt(6, 12);
+      baseExp.pace = getRandomInt(3, 7);
+      baseExp.dribbling = getRandomInt(3, 6);
+      baseExp.passing = getRandomInt(2, 5);
+      baseExp.shooting = getRandomInt(2, 5);
     } else if (pos === 'OMF') {
-      baseExp.passing = getRandomInt(10, 18);
-      baseExp.dribbling = getRandomInt(8, 14);
-      baseExp.shooting = getRandomInt(6, 12);
-      baseExp.tacticalSense = getRandomInt(8, 15);
+      baseExp.passing = getRandomInt(3, 7);
+      baseExp.dribbling = getRandomInt(3, 6);
+      baseExp.shooting = getRandomInt(2, 5);
+      baseExp.tacticalSense = getRandomInt(3, 6);
     } else if (pos === 'CMF' || pos === 'DMF') {
-      baseExp.passing = getRandomInt(10, 16);
-      baseExp.defending = getRandomInt(8, 14);
-      baseExp.stamina = getRandomInt(8, 14);
-      baseExp.physical = getRandomInt(6, 12);
+      baseExp.passing = getRandomInt(3, 6);
+      baseExp.defending = getRandomInt(3, 6);
+      baseExp.stamina = getRandomInt(3, 6);
+      baseExp.physical = getRandomInt(2, 5);
     } else if (pos === 'CB' || pos === 'SB') {
-      baseExp.defending = getRandomInt(12, 18);
-      baseExp.physical = getRandomInt(8, 14);
-      baseExp.pace = getRandomInt(6, 12);
-      baseExp.stamina = getRandomInt(6, 12);
+      baseExp.defending = getRandomInt(4, 7);
+      baseExp.physical = getRandomInt(3, 6);
+      baseExp.pace = getRandomInt(2, 5);
+      baseExp.stamina = getRandomInt(2, 5);
     } else if (pos === 'GK') {
-      baseExp.defending = getRandomInt(14, 20);
-      baseExp.physical = getRandomInt(8, 14);
-      baseExp.mental = getRandomInt(8, 14);
+      baseExp.defending = getRandomInt(4, 7);
+      baseExp.physical = getRandomInt(3, 5);
+      baseExp.mental = getRandomInt(3, 5);
     } else {
-      baseExp.passing = getRandomInt(8, 14);
-      baseExp.dribbling = getRandomInt(8, 14);
-      baseExp.shooting = getRandomInt(8, 14);
+      baseExp.passing = getRandomInt(3, 6);
+      baseExp.dribbling = getRandomInt(3, 6);
+      baseExp.shooting = getRandomInt(3, 6);
     }
 
     // Apply playstyle growth bonuses!
     if (player.playstyle && PLAYSTYLES[player.playstyle]) {
       const pDef = PLAYSTYLES[player.playstyle];
       for (const bonusStat of pDef.growthBonus) {
-        baseExp[bonusStat] = (baseExp[bonusStat] || 0) + getRandomInt(6, 12);
+        baseExp[bonusStat] = (baseExp[bonusStat] || 0) + getRandomInt(2, 4);
       }
     }
 
@@ -297,4 +349,112 @@ export function performRehabilitation(gameState: GameState): {
       ? `トレーナーの指導のもと慎重にリハビリを行い、患部の回復が順調に進みました！（全治が1日短縮）`
       : `アイシングとストレッチで患部のケアを行いました。無理のないペースで治癒を目指します。`
   };
+}
+
+/**
+ * Self Training (居残り自主練習):
+ * Focuses on 1 or 2 specific attributes with higher exp gains,
+ * but at cost of increased fatigue (+18 to +25) and risk of injury.
+ */
+export function processSelfPractice(
+  gameState: GameState,
+  targetStat: keyof PlayerStats,
+  secondaryStat?: keyof PlayerStats
+): {
+  fatigueCost: number;
+  statExpGained: Partial<StatExp>;
+  injuryOccurred?: Injury;
+  logText: string;
+} {
+  const { player } = gameState;
+  const fatigueCost = getRandomInt(18, 25);
+  const newFatigue = Math.min(100, player.fatigue + fatigueCost);
+
+  let injuryOccurred: Injury | undefined = undefined;
+  if (newFatigue >= 75) {
+    const injuryChance = newFatigue >= 95 ? 0.7 : 0.25;
+    if (Math.random() < injuryChance) {
+      injuryOccurred = {
+        name: '居残り練習での筋肉損傷・肉離れ',
+        severity: 'moderate',
+        daysRemaining: getRandomInt(7, 14),
+        initialDays: 14
+      };
+    }
+  }
+
+  const expGained: Partial<StatExp> = {
+    [targetStat]: getRandomInt(12, 18)
+  };
+  if (secondaryStat && secondaryStat !== targetStat) {
+    expGained[secondaryStat] = getRandomInt(6, 10);
+  }
+
+  return {
+    fatigueCost,
+    statExpGained: expGained,
+    injuryOccurred,
+    logText: injuryOccurred
+      ? `【居残り練習で負傷】疲労が蓄積した状態での居残り自主練習中、無理がたたり『${injuryOccurred.name}』を発症しました。`
+      : `居残り自主練習を実施。自身の課題である重点項目（${targetStat}）の技術鍛錬に励みました。（疲労 +${fatigueCost}）`
+  };
+}
+
+/**
+ * Calculates EXP gains from match participation and performance.
+ * (Goals, assists, defensive stops, match rating)
+ */
+export function calculateMatchExpGains(
+  minutesPlayed: number,
+  goals: number,
+  assists: number,
+  rating: number,
+  position: Position
+): Partial<StatExp> {
+  if (minutesPlayed <= 0) return {};
+
+  const exp: Partial<StatExp> = {
+    stamina: getRandomInt(4, 8),
+    tacticalSense: getRandomInt(3, 7)
+  };
+
+  // Performance bonuses
+  if (goals > 0) {
+    exp.shooting = (exp.shooting || 0) + goals * 12;
+    exp.mental = (exp.mental || 0) + goals * 5;
+  }
+  if (assists > 0) {
+    exp.passing = (exp.passing || 0) + assists * 10;
+    exp.tacticalSense = (exp.tacticalSense || 0) + assists * 6;
+  }
+  if (rating >= 8.0) {
+    exp.mental = (exp.mental || 0) + 6;
+    exp.tacticalSense = (exp.tacticalSense || 0) + 6;
+  } else if (rating >= 7.0) {
+    exp.tacticalSense = (exp.tacticalSense || 0) + 3;
+  }
+
+  // Position-based match experience
+  if (position === 'CF' || position === 'ST') {
+    exp.shooting = (exp.shooting || 0) + getRandomInt(4, 8);
+    exp.physical = (exp.physical || 0) + getRandomInt(2, 5);
+  } else if (position === 'WG') {
+    exp.pace = (exp.pace || 0) + getRandomInt(3, 7);
+    exp.dribbling = (exp.dribbling || 0) + getRandomInt(3, 7);
+  } else if (position === 'OMF') {
+    exp.passing = (exp.passing || 0) + getRandomInt(4, 8);
+    exp.dribbling = (exp.dribbling || 0) + getRandomInt(3, 6);
+  } else if (position === 'CMF' || position === 'DMF') {
+    exp.passing = (exp.passing || 0) + getRandomInt(3, 6);
+    exp.defending = (exp.defending || 0) + getRandomInt(3, 6);
+    exp.stamina = (exp.stamina || 0) + getRandomInt(3, 6);
+  } else if (position === 'CB' || position === 'SB') {
+    exp.defending = (exp.defending || 0) + getRandomInt(4, 8);
+    exp.physical = (exp.physical || 0) + getRandomInt(3, 6);
+  } else if (position === 'GK') {
+    exp.defending = (exp.defending || 0) + getRandomInt(5, 9);
+    exp.mental = (exp.mental || 0) + getRandomInt(3, 6);
+  }
+
+  return exp;
 }

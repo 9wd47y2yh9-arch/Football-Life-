@@ -300,6 +300,46 @@ export interface TransferOffer {
   coachAdvice?: string;
 }
 
+export interface ShopItem {
+  id: string;
+  name: string;
+  category: 'cleats' | 'nutrition' | 'recovery' | 'lifestyle';
+  price: number;
+  description: string;
+  effectDescription: string;
+  statBonus?: Partial<PlayerStats>;
+  fatigueRecovery?: number;
+  conditionBonus?: boolean;
+  minAge?: number;
+  durability?: number;
+}
+
+export interface InventoryItem {
+  id: string;
+  shopItemId: string;
+  name: string;
+  category: 'cleats' | 'nutrition' | 'recovery' | 'lifestyle';
+  purchasedDate: string;
+  isEquipped?: boolean;
+  durabilityRemaining?: number; // matches remaining for cleats
+  statBonus?: Partial<PlayerStats>;
+}
+
+export interface EquippedGear {
+  cleats?: InventoryItem;
+}
+
+export interface AdminFeedbackLog {
+  id: string;
+  timestamp: string;
+  category: 'bug' | 'balance' | 'feature' | 'system';
+  title: string;
+  content: string;
+  resolved: boolean;
+  deviceInfo?: string;
+  playerSummary?: string;
+}
+
 export interface TimelineEntry {
   id: string;
   age: number;
@@ -450,6 +490,10 @@ export interface GameState {
     snsFollowers: number; // social followers
     snsHandle: string;
     wage: number; // annual wage
+    funds: number; // accumulated savings / cash (円)
+    inventory: InventoryItem[];
+    equippedGear?: EquippedGear;
+    homeBase?: string; // Current residing city/base (e.g., "ロンドン", "マドリード", "青森", "東京")
     marketValue: number;
     nationalTeamCaps: number;
     nationalTeamGoals: number;
@@ -474,6 +518,7 @@ export interface GameState {
   scoutInterests: Array<{ clubName: string; country: string; interestLevel: string; lastSeen: string }>;
   timeline: TimelineEntry[];
   dailyLogs: Array<{ date: string; text: string; type: 'training' | 'school' | 'match' | 'event' | 'relation' }>;
+  adminFeedbackLogs?: AdminFeedbackLog[];
   activePressConference: {
     title: string;
     context: string;

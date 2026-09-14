@@ -785,6 +785,7 @@ export interface RealProClub {
   leagueName: string;
   division: 1 | 2;
   minOvr15yo: number;
+  city?: string;
 }
 
 export const REAL_PRO_CLUBS: RealProClub[] = [
@@ -916,7 +917,211 @@ export const REAL_PRO_CLUBS: RealProClub[] = [
   { id: 'tokushima_vortis', name: '徳島ヴォルティス', country: '日本', countryId: 'japan', level: 3, reputation: 70, tier: 'challenger', leagueName: 'J2リーグ', division: 2, minOvr15yo: 46 }
 ];
 
+export function getClubHomeBase(clubOrSchoolName: string): string {
+  if (!clubOrSchoolName) return '東京 (日本)';
+  const n = clubOrSchoolName.toLowerCase();
+  
+  // Real Pro Clubs
+  if (n.includes('chelsea') || n.includes('arsenal') || n.includes('tottenham') || n.includes('west ham')) return 'ロンドン (イングランド)';
+  if (n.includes('manchester city') || n.includes('manchester united') || n.includes('man city') || n.includes('man united')) return 'マンチェスター (イングランド)';
+  if (n.includes('liverpool')) return 'リバプール (イングランド)';
+  if (n.includes('newcastle')) return 'ニューカッスル (イングランド)';
+  if (n.includes('brighton')) return 'ブライトン (イングランド)';
+  if (n.includes('aston villa') || n.includes('birmingham')) return 'バーミンガム (イングランド)';
+  
+  if (n.includes('real madrid') || n.includes('atlético') || n.includes('atletico') || n.includes('leganés') || n.includes('rayo')) return 'マドリード (スペイン)';
+  if (n.includes('barcelona') || n.includes('espanyol')) return 'バルセロナ (スペイン)';
+  if (n.includes('real sociedad') || n.includes('san sebastian')) return 'サン・セバスティアン (スペイン)';
+  if (n.includes('athletic') || n.includes('bilbao')) return 'ビルバオ (スペイン)';
+  if (n.includes('sevilla') || n.includes('betis')) return 'セビージャ (スペイン)';
+  if (n.includes('valencia') || n.includes('villarreal')) return 'バレンシア (スペイン)';
+
+  if (n.includes('bayern') || n.includes('munich')) return 'ミュンヘン (ドイツ)';
+  if (n.includes('dortmund')) return 'ドルトムント (ドイツ)';
+  if (n.includes('leverkusen')) return 'レバークーゼン (ドイツ)';
+  if (n.includes('leipzig')) return 'ライプツィヒ (ドイツ)';
+  if (n.includes('frankfurt')) return 'フランクフルト (ドイツ)';
+
+  if (n.includes('paris') || n.includes('psg')) return 'パリ (フランス)';
+  if (n.includes('marseille')) return 'マルセイユ (フランス)';
+  if (n.includes('lyon')) return 'リヨン (フランス)';
+  if (n.includes('monaco')) return 'モナコ (フランス)';
+
+  if (n.includes('inter') || n.includes('milan')) return 'ミラノ (イタリア)';
+  if (n.includes('juventus') || n.includes('torino')) return 'トリノ (イタリア)';
+  if (n.includes('roma') || n.includes('lazio')) return 'ローマ (イタリア)';
+  if (n.includes('napoli')) return 'ナポリ (イタリア)';
+
+  // Japanese J-Clubs
+  if (n.includes('神戸')) return '神戸 (日本)';
+  if (n.includes('川崎')) return '川崎 (日本)';
+  if (n.includes('横浜')) return '横浜 (日本)';
+  if (n.includes('浦和') || n.includes('大宮')) return 'さいたま (日本)';
+  if (n.includes('鹿島')) return '鹿島 (日本)';
+  if (n.includes('広島')) return '広島 (日本)';
+  if (n.includes('ガンバ') || n.includes('セレッソ') || n.includes('大阪')) return '大阪 (日本)';
+  if (n.includes('名古屋')) return '名古屋 (日本)';
+  if (n.includes('東京') || n.includes('町田')) return '東京 (日本)';
+  if (n.includes('福岡')) return '福岡 (日本)';
+  if (n.includes('清水') || n.includes('磐田')) return '静岡 (日本)';
+  if (n.includes('仙台')) return '仙台 (日本)';
+  if (n.includes('札幌')) return '札幌 (日本)';
+
+  // High Schools
+  if (n.includes('青森山田')) return '青森 (日本)';
+  if (n.includes('市立船橋') || n.includes('流経大柏')) return '千葉 (日本)';
+  if (n.includes('東福岡')) return '福岡 (日本)';
+  if (n.includes('静学') || n.includes('静岡学園')) return '静岡 (日本)';
+  if (n.includes('帝京長岡')) return '新潟 (日本)';
+  if (n.includes('桐光学園') || n.includes('桐蔭学園')) return '神奈川 (日本)';
+  if (n.includes('米子北')) return '鳥取 (日本)';
+  if (n.includes('大津')) return '熊本 (日本)';
+  if (n.includes('昌平')) return '埼玉 (日本)';
+  if (n.includes('神村学園')) return '鹿児島 (日本)';
+  if (n.includes('尚志')) return '福島 (日本)';
+  if (n.includes('前橋育英')) return '群馬 (日本)';
+
+  return '東京 (日本)';
+}
+
+/**
+ * Realistic High School & U-18 Youth Teams
+ * High school players strictly play only against these clubs.
+ */
+export const HIGH_SCHOOL_TEAMS: string[] = [
+  '青森山田高校',
+  '市立船橋高校',
+  '東福岡高校',
+  '静岡学園高校',
+  '帝京長岡高校',
+  '桐光学園高校',
+  '米子北高校',
+  '大津高校',
+  '昌平高校',
+  '神村学園高校',
+  '尚志高校',
+  '前橋育英高校',
+  '流通経済大柏高校',
+  '富山第一高校',
+  '矢板中央高校',
+  '履正社高校'
+];
+
+export const U18_YOUTH_ACADEMIES: string[] = [
+  '川崎フロンターレU-18',
+  'FC東京U-18',
+  '横浜F・マリノスユース',
+  '浦和レッズユース',
+  'ヴィッセル神戸U-18',
+  'サンフレッチェ広島ユース',
+  '柏レイソルU-18',
+  '清水エスパルスユース'
+];
+
+/**
+ * Middle School & U-15 Teams
+ */
+export const MIDDLE_SCHOOL_TEAMS: string[] = [
+  '青森山田中サッカー部',
+  '南陽中学校サッカー部',
+  '桜ヶ丘中学校サッカー部',
+  '青葉中学校サッカー部',
+  '川崎フロンターレU-15',
+  'FC東京U-15むさし',
+  '横浜F・マリノスジュニアユース',
+  '浦和レッズジュニアユース',
+  'ガンバ大阪ジュニアユース',
+  'セレッソ大阪U-15'
+];
+
+/**
+ * Elementary & U-12 Teams
+ */
+export const ELEMENTARY_TEAMS: string[] = [
+  '南が丘FCジュニア',
+  '桜ヶ丘SC',
+  '東京ヴェルディジュニア',
+  '川崎フロンターレU-12',
+  '横浜F・マリノスプライマリー',
+  '浦和レッズジュニア',
+  '江南南SS',
+  '新座片山FC少年団'
+];
+
+/**
+ * Official In-Game Shop Items
+ */
+import { ShopItem } from '../types/footballLife';
+
+export const SHOP_ITEMS: ShopItem[] = [
+  {
+    id: 'spikes_speed_pro',
+    name: 'プロ仕様軽量スピードスパイク',
+    category: 'cleats',
+    price: 32000,
+    description: '最新の超軽量カーボンプレートを採用したトッププロ御用達のサッカースパイク。',
+    effectDescription: '装備中：ペース +2、ドリブル +1',
+    statBonus: { pace: 2, dribbling: 1 }
+  },
+  {
+    id: 'spikes_control_elite',
+    name: '精密コントロールスパイク',
+    category: 'cleats',
+    price: 28000,
+    description: 'ボールの吸い付きと繊細なタッチを極限まで高めたカンガルーレザー仕様。',
+    effectDescription: '装備中：パス +2、戦術眼 +1',
+    statBonus: { passing: 2, tacticalSense: 1 }
+  },
+  {
+    id: 'spikes_power_strike',
+    name: 'パワーストライカースパイク',
+    category: 'cleats',
+    price: 30000,
+    description: '強烈なインパクトとブレ球を生み出すパワー系ストライカー専用スパイク。',
+    effectDescription: '装備中：シュート +2、フィジカル +1',
+    statBonus: { shooting: 2, physical: 1 }
+  },
+  {
+    id: 'spikes_defense_solid',
+    name: '高耐久スタッドディフェンススパイク',
+    category: 'cleats',
+    price: 26000,
+    description: '激しい球際でのスライディングや踏ん張りを支える高剛性アウトソール搭載。',
+    effectDescription: '装備中：守備 +2、フィジカル +1',
+    statBonus: { defending: 2, physical: 1 }
+  },
+  {
+    id: 'nutrition_amino_pack',
+    name: '高濃度アミノ酸サプリメント',
+    category: 'nutrition',
+    price: 5000,
+    description: '筋肉の分解を防ぎ、日々のハードトレーニング後の回復を劇的に促進する。',
+    effectDescription: '購入時：疲労 -15 回復',
+    fatigueRecovery: 15
+  },
+  {
+    id: 'recovery_compression_wear',
+    name: '疲労回復コンプレッションスーツ',
+    category: 'recovery',
+    price: 18000,
+    description: '睡眠時の血流を促進し、翌朝の疲労感を大幅に軽減するリカバリーウェア。',
+    effectDescription: '購入時：疲労 -25 回復 & 調子良好化',
+    fatigueRecovery: 25,
+    conditionBonus: true
+  },
+  {
+    id: 'tactical_analysis_tablet',
+    name: 'プロ用戦術分析タブレット',
+    category: 'lifestyle',
+    price: 65000,
+    description: '各国のトップリーグや自チームの試合映像を高度分析できる専用端末。',
+    effectDescription: '購入時：戦術眼経験値 +50',
+    minAge: 13
+  }
+];
+
 export function findRealProClubByName(name: string): RealProClub | undefined {
+  if (!name) return undefined;
   return REAL_PRO_CLUBS.find(c => name.includes(c.name) || c.name.includes(name));
 }
 

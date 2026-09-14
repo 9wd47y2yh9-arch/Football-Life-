@@ -18,12 +18,14 @@ import { SettingsModal } from './components/SettingsModal';
 import { EventModal } from './components/EventModal';
 import { FaceToFaceModal } from './components/FaceToFaceModal';
 import { OffSeasonModal } from './components/OffSeasonModal';
+import { ShopModal } from './components/ShopModal';
 import { Home, Calendar, Dumbbell, Trophy, ArrowRightLeft, Users, BookOpen, Clock } from 'lucide-react';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'schedule' | 'training' | 'league' | 'transfer' | 'relationships' | 'school' | 'career'>('home');
   const [isSmartphoneOpen, setIsSmartphoneOpen] = useState(false);
+  const [isShopOpen, setIsShopOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
   const [isProcessingNextDay, setIsProcessingNextDay] = useState(false);
@@ -268,6 +270,7 @@ export default function App() {
         daysUntilMatch={daysUntilNextMatch}
         onOpenSmartphone={() => setIsSmartphoneOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenShop={() => setIsShopOpen(true)}
         isProcessingNextDay={isProcessingNextDay}
         isAutoAdvancing={isAutoAdvancing}
       />
@@ -323,6 +326,7 @@ export default function App() {
               onUpdateGameState={setGameState}
               onOpenMatchModal={() => setIsMatchModalOpen(true)}
               onOpenSmartphone={() => setIsSmartphoneOpen(true)}
+              onOpenShop={() => setIsShopOpen(true)}
               onAutoAdvance={handleAutoAdvance}
               isAutoAdvancing={isAutoAdvancing}
             />
@@ -336,6 +340,7 @@ export default function App() {
             <TrainingView
               gameState={gameState}
               onUpdateGameState={setGameState}
+              onOpenShop={() => setIsShopOpen(true)}
             />
           )}
 
@@ -386,6 +391,15 @@ export default function App() {
         />
       )}
 
+      {/* Football Gear & Care Shop Modal */}
+      {isShopOpen && (
+        <ShopModal
+          gameState={gameState}
+          onClose={() => setIsShopOpen(false)}
+          onUpdateGameState={setGameState}
+        />
+      )}
+
       {/* Match Modal */}
       {isMatchModalOpen && activeFixture && (
         <MatchModal
@@ -407,6 +421,8 @@ export default function App() {
         <SettingsModal
           onClose={() => setIsSettingsOpen(false)}
           onResetGame={handleResetGame}
+          gameState={gameState}
+          onUpdateGameState={setGameState}
         />
       )}
 
